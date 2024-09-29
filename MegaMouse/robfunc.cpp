@@ -101,7 +101,7 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     static int Ground;
     static bool Collision;
 
-    const float k = 0.02f;
+    const float k = 0.04f;
     const float max_speed = 0.1f;
     const float turn_threashold = 0.9f;
 
