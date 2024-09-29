@@ -9,6 +9,8 @@
 #define RETURN      4
 #define FINISHED    5
 
-void DetermineAction(int beaconToFollow, float *lPow, float *rPow);
+void DetermineAction(int *beaconToFollow, float *lPow, float *rPow);
+void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow);
+
 
 #endif

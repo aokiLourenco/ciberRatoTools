@@ -1,13 +1,13 @@
 
 set(robsample_SRC
     #Source
-    mainRob.c
-    robfunc.c
+    mainMouse.cpp
+    robfunc.cpp
 )
 
-add_executable(robsample ${robsample_SRC})
+add_executable(MegaMouse ${robsample_SRC})
 
-target_include_directories(robsample PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(robsample RobSock)
+target_include_directories(MegaMouse PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(MegaMouse RobSock)
 
-set_target_properties(robsample PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+set_target_properties(MegaMouse PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
