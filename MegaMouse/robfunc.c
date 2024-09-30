@@ -10,7 +10,7 @@ void DetermineAction(int beaconToFollow, float *lPow, float *rPow)
     static float  left, right, center;
     static int    Ground;
     static bool   Collision;
-    
+
     /*Access to values from Sensors - Only ReadSensors() gets new values */
     if(IsObstacleReady(LEFT))
         left=     GetObstacleSensor(LEFT);
@@ -46,7 +46,7 @@ void DetermineAction(int beaconToFollow, float *lPow, float *rPow)
         *lPow=0.05;
         *rPow=0.0;
     }
-    else { 
+    else {
         if(beaconReady && beacon.beaconVisible && beacon.beaconDir>20.0) { /* turn to Beacon */
            *lPow=0.0;
            *rPow=0.1;

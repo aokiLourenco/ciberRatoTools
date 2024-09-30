@@ -4,7 +4,7 @@
  * Basic Robot Agent
  * Very simple version for demonstration
  *
- * For more information about the CiberRato Robot Simulator 
+ * For more information about the CiberRato Robot Simulator
  * please see http://microrato.ua.pt/ or contact us.
  */
 
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     /* Connect Robot to simulator */
     if(InitRobot(rob_name, rob_id, host)==-1)
     {
-       printf( "%s Failed to connect\n", rob_name); 
+       printf( "%s Failed to connect\n", rob_name);
        exit(1);
     }
     printf( "%s Connected\n", rob_name );
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
             state=STOP; /* Interrupt */
         }
 
-        switch (state) { 
+        switch (state) {
                  case RUN:    /* Go */
 		  if( GetVisitingLed() ) state = WAIT;
                   if(GetGroundSensor()==0) {         /* Visit Target */
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 		 case RETURN: /* Return to home area */
                      if(GetVisitingLed()) SetVisitingLed(false);
 		     SetReturningLed(false);
-                     
+
                      // Wander
                      DetermineAction(1,&lPow,&rPow);
                      DriveMotors(lPow,rPow);
@@ -140,4 +140,3 @@ int main(int argc, char *argv[])
     }
     return 1;
 }
-
