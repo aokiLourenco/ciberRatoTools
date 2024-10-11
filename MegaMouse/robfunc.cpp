@@ -88,25 +88,23 @@ void print_sensors(float left, float right, float center)
     printf("left: %f \n", left);
     printf("right: %f\n", right);
     printf("center: %f\n", center);
+    printf("-------------------------- \n");
+}
+
+void print_motors(float lPow, float rPow)
+{
+    printf("left: %f \n", lPow);
+    printf("right: %f\n", rPow);
+    printf("++++++++++++++++++++\n");
 }
 
 void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
 {
-
     static int counter = 0;
-
-    bool beaconReady;
-    static struct beaconMeasure beacon;
+    float too_close_threashold = 1.0f;
+    float close_threashold = 0.6f;
     float left, right, center;
-    static int Ground;
-    static bool Collision;
 
-    const float k = 0.04f;
-    const float max_speed = 0.1f;
-    const float turn_threashold = 0.9f;
-
-
-    /*Access to values from Sensors - Only ReadSensors() gets new values */
     if (IsObstacleReady(LEFT))
         left = GetObstacleSensor(LEFT);
     if (IsObstacleReady(RIGHT))
@@ -114,110 +112,126 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     if (IsObstacleReady(CENTER))
         center = GetObstacleSensor(CENTER);
 
+    float k = 0.03f;
+    const float max_speed = 0.15f;
 
     float delta = left - right;
-    if (center > 3)
+
+    if (center > too_close_threashold)
     {
-        printf("Center close %f \n", center);
-        *lPow = (left > right) ? 0.05 : -0.05;
-        *rPow = (left > right) ? -0.05 : 0.05;
+        if (++counter >= 10)
+        {
+            *lPow = 0.15;
+            *rPow = -0.5;
+            counter = 0;
+            return;
+        }
+        printf("Center too close\n");
+        if (left > right)
+        {
+            *lPow = 0.15;
+            *rPow = -0.5;
+        }
+        else if (right > left)
+        {
+            *lPow = -0.5;
+            *rPow = 0.15;
+        }
+        else
+        {
+            *lPow = -0.15;
+            *rPow = -0.15;
+        }
     }
-    else if (delta < turn_threashold && delta > -turn_threashold)
+    else if (left > close_threashold && right > close_threashold)
     {
-        *lPow = 0.1;
-        *rPow = 0.1;
+        counter = 0;
+        *lPow = 0.15;
+        *rPow = 0.15;
+    }
+    else if (left > too_close_threashold)
+    {
+        counter = 0;
+
+        printf("Left too close\n");
+        *lPow = 0.15;
+        *rPow = -0.05;
+    }
+    else if (right > too_close_threashold)
+    {
+        counter = 0;
+
+        printf("Right too close\n");
+        *lPow = -0.05;
+        *rPow = 0.15;
     }
     else
     {
-
-         if (left < 4.0f || right < 4.0f) {  // Sharp turn or wall hugging detected
-            printf("Diagonal or sharp turn detected.\n");
-            *lPow = std::max(-max_speed, std::min(max_speed, k * delta * 1.5f));  // More aggressive turn
-            *rPow = std::max(-max_speed, std::min(max_speed, -k * delta * 1.5f)); // Turn proportionally
-        } else {
-            // Regular balancing between left and right distances
-            print_sensors(left, right, center);
-            *lPow = std::max(-max_speed, std::min(max_speed, k * delta));
-            *rPow = std::max(-max_speed, std::min(max_speed, -k * delta));
-            printf("| L: %f | R : %f |\n", *lPow, *rPow);
-        }
-
-        // print_sensors(left, right, center);
-        // *lPow = std::max(-max_speed, std::min(max_speed, k * delta));
-        // *rPow = std::max(-max_speed, std::min(max_speed, -k * delta));
-        // printf("| L: %f | R : %f |\n", *lPow, *rPow);
+        *lPow = 0.15;
+        *rPow = 0.15;
+        // printf("No obstacles\n");
+        // *lPow = std::max(-max_speed, std::min(max_speed, k * delta * 1.5f));  // More aggressive turn
+        // *rPow = std::max(-max_speed, std::min(max_speed, -k * delta * 1.5f)); // Turn proportionally
     }
 
-    // printf("left: %f \n", left);
-    // printf("right: %f\n", right);
-    // printf("center: %f\n", center);
+    // static int counter = 0;
 
-    // * Try to remain on the center path
-    // * Is goint to hit the wal on the sides
-    // if (left > 10 || right > 10){
-    //     *lPow = (left > right) ? 0.05 : -0.05;
-    //     *rPow = (left > right) ? -0.05 : 0.05;
-    // }
+    // bool beaconReady;
+    // static struct beaconMeasure beacon;
+    // float left, right, center;
+    // static int Ground;
+    // static bool Collision;
 
-    // // * Is going to hit front
-    // if (center > 3)
+    // const float k = 0.03f;
+    // const float max_speed = 0.15f;
+    // const float turn_threashold = 0.8f;
+
+    // /*Access to values from Sensors - Only ReadSensors() gets new values */
+    // if (IsObstacleReady(LEFT))
+    //     left = GetObstacleSensor(LEFT);
+    // if (IsObstacleReady(RIGHT))
+    //     right = GetObstacleSensor(RIGHT);
+    // if (IsObstacleReady(CENTER))
+    //     center = GetObstacleSensor(CENTER);
+
+    // print_sensors(left, right, center);
+    // print_motors(*lPow, *rPow);
+
+    // float delta = left - right;
+    // if (center > 1.5)
     // {
-    //     printf("F*** TURN BACK (center > 3) \n");
-    //     print_sensors(left, right, center);
-    //     *lPow = (left > right) ? 0.1 : -0.1;
-    //     *rPow = (left > right) ? -0.1 : 0.1;
+    //     *lPow = (left > right) ? 0.02 : -0.02;
+    //     *rPow = (left > right) ? -0.02 : 0.02;
     // }
-
-    // else if(left > 1.5 && right > 1.5){
-    //     *lPow = (left > right) ? 0.1 : 0.09;
-    //     *rPow = (left > right) ? 0.09 : 0.1;
+    // else if (delta < turn_threashold && delta > -turn_threashold)
+    // {
+    //     *lPow = 0.15;
+    //     *rPow = 0.15;
     // }
-
-    /* If Really close */
-
-    // else if(left > 3){
-    //     printf("TURN TURN RIGHT (Left > 3) \n");
-    //     print_sensors(left, right, center);
-
-    //     *lPow = 0.05;
-    //     *rPow = 0;//-0.02;
-    // }
-    // else if(right > 3){
-    //     printf("TURN TURN LEFT (Right > 3) \n");
-    //     print_sensors(left, right, center);
-
-    //     *lPow = 0;//-0.02;
-    //     *rPow = 0.05;
-    // }
-
-    // /* If it can still dodge*/
-    // else if(left > 2){
-    //     printf("TURN  RIGHT (Left > 2) \n");
-    //     print_sensors(left, right, center);
-
-    //     *lPow = 0.1;
-    //     *rPow = 0.08;
-    // }
-    // else if(right > 2){
-    //     printf("TURN  LEFT (Right > 2) \n");
-    //     print_sensors(left, right, center);
-
-    //     *lPow = 0.08;
-    //     *rPow = 0.1;
-    // }
-
-    // else if(left > 1.5){
-    //     *lPow = 0.05;
-    //     *rPow = 0.0;
-    // }
-    // else if(right > 1.5){
-    //     *lPow = 0.0;
-    //     *rPow = 0.05;
-    // }
-
     // else
     // {
-    //     *lPow = 0.1;
-    //     *rPow = 0.1;
+
+    //     *lPow +=  k * delta;
+    //     *rPow -=  k * delta;
+
+    //     // *lPow += std::max(-max_speed, std::min(max_speed, k * delta));
+    //     // *rPow += std::max(-max_speed, std::min(max_speed, -k * delta));
+
+    //     //  if (left < 4.0f || right < 4.0f) {  // Sharp turn or wall hugging detected
+    //     //     printf("Diagonal or sharp turn detected.\n");
+    //     //     *lPow = std::max(-max_speed, std::min(max_speed, k * delta * 1.5f));  // More aggressive turn
+    //     //     *rPow = std::max(-max_speed, std::min(max_speed, -k * delta * 1.5f)); // Turn proportionally
+    //     // } else {
+    //     //     // Regular balancing between left and right distances
+    //     //     print_sensors(left, right, center);
+    //     //     *lPow = std::max(-max_speed, std::min(max_speed, k * delta));
+    //     //     *rPow = std::max(-max_speed, std::min(max_speed, -k * delta));
+    //     //     printf("| L: %f | R : %f |\n", *lPow, *rPow);
+    //     // }
+
     // }
+
+    // // if(center > 2.0f){
+    // //     *lPow = (left)
+    // //     *rPow = 0.1;
 }
