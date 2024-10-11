@@ -1,10 +1,9 @@
-
 /* mainRob.C
  *
  * Basic Robot Agent
  * Very simple version for demonstration
  *
- * For more information about the CiberRato Robot Simulator
+ * For more information about the CiberRato Robot Simulator 
  * please see http://microrato.ua.pt/ or contact us.
  */
 
@@ -22,9 +21,15 @@
 
 int main(int argc, char *argv[])
 {
+
     char host[100]="localhost";
-    char rob_name[20]="robsample";
+    char rob_name[20]="MegaMouse";
     float lPow,rPow;
+    int goal = 0; 
+
+    struct beaconMeasure beacon;
+    bool beaconReady;
+
     int state=STOP, stoppedState=RUN, rob_id = 1;
     char lmap[CELLROWS*2-1][CELLCOLS*2-1]; // in this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to lmap[i*2][j*2].
                                            // to know if there is a wall on top of cell(i,j) (i in 0..5), check if the value of lmap[i*2+1][j*2] is space or not
@@ -78,65 +83,98 @@ int main(int argc, char *argv[])
     /* Connect Robot to simulator */
     if(InitRobot(rob_name, rob_id, host)==-1)
     {
-       printf( "%s Failed to connect\n", rob_name);
+       printf( "%s Failed to connect\n", rob_name); 
        exit(1);
     }
     printf( "%s Connected\n", rob_name );
     state=STOP;
+
+    printf( "%d beacons available \n", GetNumberOfBeacons());
+
     while(1)
     {
         /* Reading next values from Sensors */
         ReadSensors();
 
-        /* show LineSensor values */
-        bool line[7];
-        GetLineSensor(line);
-        for(int i=0;i<N_LINE_ELEMENTS;i++) {
-            fprintf(stderr,"%s",line[i]?"1":"0");
+        beaconReady = IsBeaconReady(goal);
+        //printf("Beacon ready: %d\n", beaconReady);
+        if(beaconReady) {
+            printf("Following beacon num %d at %d \n", goal, beacon.beaconDir);
+            beacon =  GetBeaconSensor(goal);
         }
-        fprintf(stderr,"\n");
 
-        if(GetFinished()) /* Simulator has received Finish() or Robot Removed */
+        /* Calculate */
+
+        DeterminateAction(&goal,&lPow,&rPow);
+
+        /* Drive*/
+
+        DriveMotors(lPow,rPow);
+
+        if (GetGroundSensor() == goal)
         {
-           printf(  "%s Exiting\n", rob_name );
-           exit(0);
+            printf("%s visited target id %d at %d\n", rob_name,GetGroundSensor(), GetTime());
+            goal++;
         }
-        if(state==STOP && GetStartButton()) state=stoppedState;  /* Restart     */
-        if(state!=STOP && GetStopButton())  {
-            stoppedState=state;
-            state=STOP; /* Interrupt */
-        }
-
-        switch (state) {
-                 case RUN:    /* Go */
-		  if( GetVisitingLed() ) state = WAIT;
-                  if(GetGroundSensor()==0) {         /* Visit Target */
-                     SetVisitingLed(true);
-                     printf("%s visited target at %d\n", rob_name, GetTime());
-                  }
-
-                  else {
-                     DetermineAction(0,&lPow,&rPow);
-                     DriveMotors(lPow,rPow);
-                  }
-                  break;
-		 case WAIT: /* Wait for others to visit target */
-		     SetReturningLed(true);
-                     if(GetVisitingLed()) SetVisitingLed(false);
-                     if(GetReturningLed()) state = RETURN;
-                     DriveMotors(0.0,0.0);
-                     break;
-		 case RETURN: /* Return to home area */
-                     if(GetVisitingLed()) SetVisitingLed(false);
-		     SetReturningLed(false);
-
-                     // Wander
-                     DetermineAction(1,&lPow,&rPow);
-                     DriveMotors(lPow,rPow);
-
-                     break;
-	}
 
     }
     return 1;
+
+
+
+
+
+
+
+    //     /* show LineSensor values */
+    //     bool line[7];
+    //     GetLineSensor(line);
+    //     for(int i=0;i<N_LINE_ELEMENTS;i++) {
+    //         fprintf(stderr,"%s",line[i]?"1":"0");
+    //     }
+    //     fprintf(stderr,"\n");
+
+    //     if(GetFinished()) /* Simulator has received Finish() or Robot Removed */
+    //     {
+    //        printf(  "%s Exiting\n", rob_name );
+    //        exit(0);
+    //     }
+    //     if(state==STOP && GetStartButton()) state=stoppedState;  /* Restart     */
+    //     if(state!=STOP && GetStopButton())  {
+    //         stoppedState=state;
+    //         state=STOP; /* Interrupt */
+    //     }
+
+    //     switch (state) { 
+    //              case RUN:    /* Go */
+	// 	  if( GetVisitingLed() ) state = WAIT;
+    //               if(GetGroundSensor()==0) {         /* Visit Target */
+    //                  SetVisitingLed(true);
+    //                  printf("%s visited target at %d\n", rob_name, GetTime());
+    //               }
+
+    //               else {
+    //                  DetermineAction(0,&lPow,&rPow);
+    //                  DriveMotors(lPow,rPow);
+    //               }
+    //               break;
+	// 	 case WAIT: /* Wait for others to visit target */
+	// 	     SetReturningLed(true);
+    //                  if(GetVisitingLed()) SetVisitingLed(false);
+    //                  if(GetReturningLed()) state = RETURN;
+    //                  DriveMotors(0.0,0.0);
+    //                  break;
+	// 	 case RETURN: /* Return to home area */
+    //                  if(GetVisitingLed()) SetVisitingLed(false);
+	// 	     SetReturningLed(false);
+                     
+    //                  // Wander
+    //                  DetermineAction(1,&lPow,&rPow);
+    //                  DriveMotors(lPow,rPow);
+
+    //                  break;
+	// }
+
+    // }
+    // return 1;
 }
