@@ -1,4 +1,4 @@
 cd ../build/
 make
 cd ../MegaMouseFlood/
-./MegaMouse
+./MegaMouse2

@@ -117,6 +117,13 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
 
     float delta = left - right;
 
+    if (IsGPSReady())
+    {
+        double x = GetX();
+        double y = GetY();
+        printf("X: %f, Y: %f\n", x, y);
+    }
+
     if (center > too_close_threashold)
     {
         if (++counter >= 10)
