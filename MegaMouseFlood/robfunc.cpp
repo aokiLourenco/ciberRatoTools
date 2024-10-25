@@ -163,6 +163,9 @@ void calculate_next_point(float xStart, float yStart, float current_angle, float
     if(*distance != -10.0f){
         *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
         *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
+        //if((int)*angle == 180) *angle = -180;
+         
+    
     }
     // * Check if reached the next point
     if (*distance > 0.2f){
@@ -233,7 +236,8 @@ void calculate_next_point(float xStart, float yStart, float current_angle, float
 
     *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
     *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
-    if( (int)*angle == 180) *angle = -180;
+    // std::cout << (int) *angle << std::endl;
+    // if((int)*angle == 180) *angle = -180;
     
 
 }
@@ -349,18 +353,27 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     // * With the wall checked we can see if we< can move foward or not
     calculate_next_point(x,y,compass_direction ,&next_x, &next_y, &angle_to_turn,&distance_to_next_point, &current_map_x, &current_map_y, &maze);
 
-    std::cout << "Next point x: " << next_x << " y: " << next_y << " angle: " << (int) angle_to_turn << " distance: " << distance_to_next_point << "WALL : "<<  maze.map[current_map_x][current_map_y]->wall  << std::endl;
+    std::cout << "Next point x: " << next_x << " y: " << next_y << " angle: " << (int) angle_to_turn << " distance: " << distance_to_next_point << " WALL : "<<  maze.map[current_map_x][current_map_y]->wall << "My angle: " << compass_direction  << std::endl;
     //std::cout << "Next point :" << current_map_x << " " << current_map_y << std::endl; 
 
     // * Rotate to the next point
 
-    if (compass_direction > (int) angle_to_turn){
-        *lPow = 0.01;
-        *rPow = -0.01;
+    if((int) angle_to_turn == 180 && compass_direction > -180 && compass_direction < 0){
+        *lPow = 0.02;
+        *rPow = -0.02;
+        return;
+    }else if((int) angle_to_turn == -180 && compass_direction < 180 && compass_direction > 0){
+        *lPow = -0.02;
+        *rPow = 0.02;
+        return;
+
+    }else if (compass_direction > (int) angle_to_turn){
+        *lPow = 0.02;
+        *rPow = -0.02;
         return;
     }else if (compass_direction < (int) angle_to_turn){
-        *lPow = -0.01;
-        *rPow = 0.01;
+        *lPow = -0.02;
+        *rPow = 0.02;
         return;
     }
 
