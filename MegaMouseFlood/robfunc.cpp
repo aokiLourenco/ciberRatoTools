@@ -4,7 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+
+#include <vector>
 #include <algorithm>
+
+#include <thread>
+#include <future>
 
 #include "robfunc.h"
 
@@ -27,6 +32,13 @@ typedef struct
 
 } maze_map;
 
+float get_cost(int x, int y, maze_map* maze) {
+    if (check_if_next_point_has_been_visited(maze, x, y)) {
+        return 1000.0f; // High cost for explored cells
+    } else {
+        return 1.0f; // Low cost for unexplored cells
+    }
+}
 
 void print_sensors(float left, float right, float center, float back)
 {
@@ -53,193 +65,328 @@ void store_map__in_memory(maze_map *maze, int x, int y, std::string value)
     maze->map[x][y]->wall = map_values[value];
 }
 
-void check_for_walls(float left, float right, float center, float back, float compass,int current_x,int current_y, maze_map *maze)
+// void check_for_walls(float left, float right, float center, float back, float compass,int current_x,int current_y, maze_map *maze)
+// {
+//     std::string value = "";
+
+//     float there_is_a_wall = 1.5f;
+
+//     if (compass > -15.0f && compass < 15.0f)
+//     { // Looking right
+
+//         if (left > there_is_a_wall)
+//         {
+//             value.append("U");
+//         }
+//         if (right > there_is_a_wall)
+//         {
+//             value.append("D");
+//         }
+//         if (center > there_is_a_wall)
+//         {
+//             value.append("R");
+//         }
+//         if (back > there_is_a_wall)
+//         {
+//             value.append("L");
+//         }
+//     }
+//     else if (compass > 85.0f && compass < 95.0f)
+//     { // Looking up
+
+//         if (left > there_is_a_wall)
+//         {
+//             value.append("L");
+//         }
+//         if (right > there_is_a_wall)
+//         {
+//             value.append("R");
+//         }
+//         if (center > there_is_a_wall)
+//         {
+//             value.append("U");
+//         }
+//         if (back > there_is_a_wall)
+//         {
+//             value.append("D");
+//         }
+//     }
+//     else if (compass < -175.0f || compass > 175.0f)
+//     { // Looking left
+//         if (left > there_is_a_wall)
+//         {
+//             value.append("D");
+//         }
+//         if (right > there_is_a_wall)
+//         {
+//             value.append("U");
+//         }
+//         if (center > there_is_a_wall)
+//         {
+//             value.append("L");
+//         }
+//         if (back > there_is_a_wall)
+//         {
+//             value.append("R");
+//         }
+//     }
+//     else if (compass < -85.0f && compass > -95.0f)
+//     { // Looking down
+//         if (left > there_is_a_wall)
+//         {
+//             value.append("R");
+//         }
+//         if (right > there_is_a_wall)
+//         {
+//             value.append("L");
+//         }
+//         if (center > there_is_a_wall)
+//         {
+//             value.append("D");
+//         }
+//         if (back > there_is_a_wall)
+//         {
+//             value.append("U");
+//         }
+//     }
+
+//     // Sort the string
+//     std::sort(value.begin(), value.end());
+
+//     std::cout << "Value: " << value << "left: " << left  << " ; Current x :" << current_x << " Current y :" << current_y << std::endl;
+//     maze->map[current_x][current_y]->wall = value;
+// }
+
+void check_for_walls(float left, float right, float center, float back, float compass, int current_x, int current_y, maze_map *maze)
 {
-    std::string value = "";
+    char value[5] = {0}; // Use a character array to store wall information
+    int index = 0;
 
     float there_is_a_wall = 1.5f;
 
-    if (compass > -15.0f && compass < 15.0f)
-    { // Looking right
+    // Lookup table for compass directions
+    struct WallCheck {
+        float min_angle;
+        float max_angle;
+        char left_wall;
+        char right_wall;
+        char center_wall;
+        char back_wall;
+    };
 
-        if (left > there_is_a_wall)
-        {
-            value.append("U");
-        }
-        if (right > there_is_a_wall)
-        {
-            value.append("D");
-        }
-        if (center > there_is_a_wall)
-        {
-            value.append("R");
-        }
-        if (back > there_is_a_wall)
-        {
-            value.append("L");
-        }
-    }
-    else if (compass > 85.0f && compass < 95.0f)
-    { // Looking up
+    WallCheck wall_checks[] = {
+        {-15.0f, 15.0f, 'U', 'D', 'R', 'L'},   // Looking right
+        {85.0f, 95.0f, 'L', 'R', 'U', 'D'},    // Looking up
+        {175.0f, -175.0f, 'D', 'U', 'L', 'R'}, // Looking left
+        {-95.0f, -85.0f, 'R', 'L', 'D', 'U'}   // Looking down
+    };
 
-        if (left > there_is_a_wall)
-        {
-            value.append("L");
-        }
-        if (right > there_is_a_wall)
-        {
-            value.append("R");
-        }
-        if (center > there_is_a_wall)
-        {
-            value.append("U");
-        }
-        if (back > there_is_a_wall)
-        {
-            value.append("D");
-        }
-    }
-    else if (compass < -175.0f || compass > 175.0f)
-    { // Looking left
-        if (left > there_is_a_wall)
-        {
-            value.append("D");
-        }
-        if (right > there_is_a_wall)
-        {
-            value.append("U");
-        }
-        if (center > there_is_a_wall)
-        {
-            value.append("L");
-        }
-        if (back > there_is_a_wall)
-        {
-            value.append("R");
-        }
-    }
-    else if (compass < -85.0f && compass > -95.0f)
-    { // Looking down
-        if (left > there_is_a_wall)
-        {
-            value.append("R");
-        }
-        if (right > there_is_a_wall)
-        {
-            value.append("L");
-        }
-        if (center > there_is_a_wall)
-        {
-            value.append("D");
-        }
-        if (back > there_is_a_wall)
-        {
-            value.append("U");
+    for (const auto& check : wall_checks) {
+        if (compass > check.min_angle && compass < check.max_angle) {
+            if (left > there_is_a_wall) value[index++] = check.left_wall;
+            if (right > there_is_a_wall) value[index++] = check.right_wall;
+            if (center > there_is_a_wall) value[index++] = check.center_wall;
+            if (back > there_is_a_wall) value[index++] = check.back_wall;
+            break;
         }
     }
 
-    // Sort the string
-    std::sort(value.begin(), value.end());
+    value[index] = '\0'; // Null-terminate the character array
 
-    std::cout << "Value: " << value << "left: " << left  << " ; Current x :" << current_x << " Current y :" << current_y << std::endl;
+    std::sort(value, value + index); // Sort the character array
+
+    std::cout << "Value: " << value << " left: " << left << " ; Current x: " << current_x << " Current y: " << current_y << std::endl;
     maze->map[current_x][current_y]->wall = value;
 }
 
 int retreive_map_in_memory()
 {
+    return 0;
 }
 
 bool check_if_next_point_has_been_visited(maze_map *maze, int x, int y)
 {
     if(maze->map[x][y]->wall.compare("") != 0){
+        std::cout << "Point has been visited" << std::endl;
         return true;
     }
     return false;
 }
 
 
-void calculate_next_point(float xStart, float yStart, float current_angle, float *end_x, float *end_y, float *angle, double *distance, int * maze_x, int* maze_y, maze_map *maze)
+// void calculate_next_point(float xStart, float yStart, float current_angle, float *end_x, float *end_y, float *angle, double *distance, int * maze_x, int* maze_y, maze_map *maze)
+// {
+//     if(*distance != -10.0f){
+//         *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
+//         *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
+//         //if((int)*angle == 180) *angle = -180;
+        
+    
+//     }
+//     // * Check if reached the next point
+//     if (*distance > 0.2f){
+//         return;
+//     }
+
+
+//     // From the current position, calculate the possible next move, using the map as reference
+//     // * If my array is a tupple array, with (x,y,Wall) then i could calculate all the points first, and then check if it is possible to move to them...
+
+//     std::cout << "Current position x: " << *maze_x << " y: " << *maze_y << std::endl;
+//     // *Check my current position and see where there is no wall
+//     std::string wall =  maze->map[*maze_x][*maze_y]->wall;
+//     std::cout << "Wall: " << wall << std::endl;
+
+//     bool enter = 1;
+//     // * Check if wall is on the right
+//     if(wall.find("R") == std::string::npos && enter){
+//         *maze_x = *maze_x + 1;
+//         *end_x = maze->map[*maze_x][*maze_y]->x;
+//         *end_y = maze->map[*maze_x][*maze_y]->y;
+//         enter = 0;
+//         if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
+//             *maze_x = *maze_x - 1;
+//             enter = 1;
+//         }
+
+//     }
+
+//     if(wall.find("U") == std::string::npos&& enter){
+//         *maze_y = *maze_y + 1;
+
+//         *end_x = maze->map[*maze_x][*maze_y]->x;
+//         *end_y = maze->map[*maze_x][*maze_y]->y;
+//         enter = 0;
+//         if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
+//             *maze_y = *maze_y - 1;
+//             enter = 1;
+//         }
+//     }
+    
+//     if(wall.find("D") == std::string::npos&& enter){
+//         *maze_y = *maze_y - 1;
+
+//         *end_x = maze->map[*maze_x][*maze_y]->x;
+//         *end_y = maze->map[*maze_x][*maze_y]->y;
+//         enter = 0;
+//         if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
+//             *maze_y = *maze_y + 1;
+//             enter = 1;
+//         }
+//     }
+    
+//     if(wall.find("L") == std::string::npos&& enter){
+//         *maze_x = *maze_x - 1;
+//         *end_x = maze->map[*maze_x][*maze_y]->x;
+//         *end_y = maze->map[*maze_x][*maze_y]->y;
+//         enter = 0;
+//         if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
+//             *maze_x = *maze_x + 1;
+//             enter = 1;
+//         }
+//     }
+
+//     if(enter == 1){
+//         // * Time to A*
+//     }
+
+//     *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
+//     *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
+//     // std::cout << (int) *angle << std::endl;
+//     // if((int)*angle == 180) *angle = -180;
+    
+
+// }
+
+void calculate_next_point(float xStart, float yStart, float current_angle, float *end_x, float *end_y, float *angle, double *distance, int *maze_x, int *maze_y, maze_map *maze)
 {
-    if(*distance != -10.0f){
+    // Calculate distance and angle only if distance is not initialized
+    if (*distance != -10.0f) {
         *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
         *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
-        //if((int)*angle == 180) *angle = -180;
-         
-    
     }
-    // * Check if reached the next point
-    if (*distance > 0.2f){
+
+    // Check if reached the next point
+    if (*distance > 0.2f) {
         return;
     }
 
-
     // From the current position, calculate the possible next move, using the map as reference
-    // * If my array is a tupple array, with (x,y,Wall) then i could calculate all the points first, and then check if it is possible to move to them...
-
     std::cout << "Current position x: " << *maze_x << " y: " << *maze_y << std::endl;
-    // *Check my current position and see where there is no wall
-    std::string wall =  maze->map[*maze_x][*maze_y]->wall;
+
+    // Check current position and see where there is no wall
+    std::string wall = maze->map[*maze_x][*maze_y]->wall;
     std::cout << "Wall: " << wall << std::endl;
 
-    bool enter = 1;
-    // * Check if wall is on the right
-    if(wall.find("R") == std::string::npos && enter){
-        *maze_x = *maze_x + 1;
-        *end_x = maze->map[*maze_x][*maze_y]->x;
-        *end_y = maze->map[*maze_x][*maze_y]->y;
-        enter = 0;
-        if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
-            *maze_x = *maze_x - 1;
-            enter = 1;
+    bool move_found = false;
+
+    // Define possible moves and their corresponding wall checks
+    struct Move {
+        int dx;
+        int dy;
+        char wall_char;
+        float cost;
+    };
+
+    std::vector<Move> moves = {
+        {1, 0, 'R', get_cost(*maze_x + 1, *maze_y, maze)},  // Move right
+        {0, -1, 'U', get_cost(*maze_x, *maze_y - 1, maze)}, // Move up
+        {0, 1, 'D', get_cost(*maze_x, *maze_y + 1, maze)},  // Move down
+        {-1, 0, 'L', get_cost(*maze_x - 1, *maze_y, maze)}  // Move left
+    };
+
+    // Sort moves by cost (ascending)
+    std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
+        return a.cost < b.cost;
+    });
+
+    // for (const auto& move : moves) {
+    //     if (wall.find(move.wall_char) == std::string::npos && enter) {
+    //         *maze_x += move.dx;
+    //         *maze_y += move.dy;
+    //         *end_x = maze->map[*maze_x][*maze_y]->x;
+    //         *end_y = maze->map[*maze_x][*maze_y]->y;
+    //         enter = false;
+    //         if (check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)) {
+    //             *maze_x -= move.dx;
+    //             *maze_y -= move.dy;
+    //             enter = true;
+    //         }
+    //     }
+    // }
+
+    for (const auto& move : moves) {
+        std::cout << "Checking move: dx=" << move.dx << ", dy=" << move.dy << ", wall_char=" << move.wall_char << ", cost=" << move.cost << std::endl;
+        if (wall.find(move.wall_char) == std::string::npos) {
+            std::cout << "No wall in direction: " << move.wall_char << std::endl;
+            *maze_x += move.dx;
+            *maze_y += move.dy;
+            *end_x = maze->map[*maze_x][*maze_y]->x;
+            *end_y = maze->map[*maze_x][*maze_y]->y;
+
+            if (!check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)) {
+                std::cout << "Move to x: " << *maze_x << " y: " << *maze_y << " is valid." << std::endl;
+                move_found = true;
+                break;
+            } else {
+                // Revert the move if the next point has been visited
+                std::cout << "Next point has been visited, reverting move." << std::endl;
+                *maze_x -= move.dx;
+                *maze_y -= move.dy;
+            }
+        } else {
+            std::cout << "Wall found in direction: " << move.wall_char << std::endl;
         }
-
     }
 
-    if(wall.find("U") == std::string::npos&& enter){
-        *maze_y = *maze_y + 1;
-
-        *end_x = maze->map[*maze_x][*maze_y]->x;
-        *end_y = maze->map[*maze_x][*maze_y]->y;
-        enter = 0;
-        if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
-            *maze_y = *maze_y - 1;
-            enter = 1;
-        }
-    }
-    
-    if(wall.find("D") == std::string::npos&& enter){
-        *maze_y = *maze_y - 1;
-
-        *end_x = maze->map[*maze_x][*maze_y]->x;
-        *end_y = maze->map[*maze_x][*maze_y]->y;
-        enter = 0;
-        if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
-            *maze_y = *maze_y + 1;
-            enter = 1;
-        }
-    }
-    
-    if(wall.find("L") == std::string::npos&& enter){
-        *maze_x = *maze_x - 1;
-        *end_x = maze->map[*maze_x][*maze_y]->x;
-        *end_y = maze->map[*maze_x][*maze_y]->y;
-        enter = 0;
-        if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
-            *maze_x = *maze_x + 1;
-            enter = 1;
-        }
+    if (!move_found) {
+        std::cout << "No valid move found, consider using a pathfinding algorithm." << std::endl;
+        // Time to use A* or another pathfinding algorithm
     }
 
-    if(enter == 1){
-        // * Time to A*
-    }
-
+    // Calculate distance and angle to the next point
     *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
     *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
-    // std::cout << (int) *angle << std::endl;
-    // if((int)*angle == 180) *angle = -180;
-    
-
 }
 
 
@@ -262,7 +409,7 @@ void calculate_all_map_positions(maze_map *maze, double first_x, double first_y)
 
             maze->map[CENTER_POINT + i][CENTER_POINT + j] = new maze_data();
             maze->map[CENTER_POINT + i][CENTER_POINT + j]->x = first_x + i*2.0f;
-            maze->map[CENTER_POINT + i][CENTER_POINT + j]->y = first_y + j*2.0f;
+            maze->map[CENTER_POINT + i][CENTER_POINT + j]->y = first_y - j*2.0f;
             maze->map[CENTER_POINT + i][CENTER_POINT + j]->wall = "";
         }
     }    
@@ -281,13 +428,19 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
 
     // * Static Variables
     static int counter = 0, count = 0;      
+    
     static float too_close_threashold = 1.0f;                   // IF the distance is less than this, then it is too close
     static float close_threashold = 0.6f;                       // If the distance is less than this, then it is close
+    
     static int current_map_x = CENTER_POINT, current_map_y = CENTER_POINT;     // First position in the map
+    
     static double first_x = 12345.00;                           // First x position in the GPS (it is not the same every run, so this value is changed)    
     static double first_y = 12345.00;                           // First y position in the GPS (it is not the same every run, so this value is changed)    
+    
     static maze_map maze;                                       // The map
+    
     static float next_x, next_y,angle_to_turn;                  // Values to recieve after calculating the next point
+    
     static double distance_to_next_point = -10.0f;                // Distance to the next point
 
 
@@ -328,12 +481,10 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     if (IsCompassReady())
     {
         //printf("Compass: %f\n", GetCompassSensor());
-
         compass_direction = GetCompassSensor();
     }
 
     //printf("Walls %s\n", check_for_walls(left, right, center, back, compass_direction).c_str());
-
     // float next_x, next_y = calculate_next_point(x, y);
 
     // * Store the values in the map
@@ -347,17 +498,15 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     //std::cout << "Checking for walls" << std::endl;
     // * Check for walls in the cell, and store it in the map
     check_for_walls(left, right, center, back, compass_direction, current_map_x, current_map_y, &maze);
-    
-    // std::cout << "Calculating next point" << std::endl;
 
+    // std::cout << "Calculating next point" << std::endl;
     // * With the wall checked we can see if we< can move foward or not
     calculate_next_point(x,y,compass_direction ,&next_x, &next_y, &angle_to_turn,&distance_to_next_point, &current_map_x, &current_map_y, &maze);
 
-    std::cout << "Next point x: " << next_x << " y: " << next_y << " angle: " << (int) angle_to_turn << " distance: " << distance_to_next_point << " WALL : "<<  maze.map[current_map_x][current_map_y]->wall << "My angle: " << compass_direction  << std::endl;
-    //std::cout << "Next point :" << current_map_x << " " << current_map_y << std::endl; 
+    std::cout << "Next point x: " << next_x << " y: " << next_y << " angle: " << (int) angle_to_turn << " distance: " << distance_to_next_point << "\nWALL : "<<  maze.map[current_map_x][current_map_y]->wall << "\nMy angle: " << compass_direction  << std::endl;
+    std::cout << "\nNext point :" << current_map_x << " " << current_map_y << "\n" << std::endl; 
 
     // * Rotate to the next point
-
     if((int) angle_to_turn == 180 && compass_direction > -180 && compass_direction < 0){
         *lPow = 0.02;
         *rPow = -0.02;
@@ -367,113 +516,21 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
         *rPow = 0.02;
         return;
 
-    }else if (compass_direction > (int) angle_to_turn){
+    }else if (compass_direction > (int) angle_to_turn){ 
         *lPow = 0.02;
         *rPow = -0.02;
         return;
-    }else if (compass_direction < (int) angle_to_turn){
+    }else if (compass_direction < (int) angle_to_turn){ 
         *lPow = -0.02;
         *rPow = 0.02;
         return;
     }
 
     // * Move to the next point
-    if (distance_to_next_point > 0.25f)
+    if (distance_to_next_point > 0.20f)
     {
         *lPow = 0.15;
         *rPow = 0.15;
         return;
     }
-
-
-
-
-
-
-
-
-    if (count > 2)
-    {
-        *lPow = -0.01;
-        *rPow = 0.01;
-
-        // if (compass_direction > 85.0f && compass_direction < 95.0f)
-        // {
-        //     *lPow = 0.1;
-        //     *rPow = 0.1;
-        // }
-        // print_sensors(left, right, center, back);
-        return;
-    }
-
-    if ((x > first_x + 1.9f && x < first_x + 2.1f))
-    {
-        *lPow = 0.0;
-        *rPow = 0.0;
-        first_x = GetX();
-        printf("Count: %d\n", count);
-        count++;
-        return;
-    }
-    *lPow = 0.1;
-    *rPow = 0.1;
-    return;
-
-    if (center > too_close_threashold)
-    {
-        if (++counter >= 10)
-        {
-            *lPow = 0.15;
-            *rPow = -0.5;
-            counter = 0;
-            return;
-        }
-        printf("Center too close\n");
-        if (left > right)
-        {
-            *lPow = 0.15;
-            *rPow = -0.5;
-        }
-        else if (right > left)
-        {
-            *lPow = -0.5;
-            *rPow = 0.15;
-        }
-        else
-        {
-            *lPow = -0.15;
-            *rPow = -0.15;
-        }
-    }
-    else if (left > close_threashold && right > close_threashold)
-    {
-        counter = 0;
-        *lPow = 0.15;
-        *rPow = 0.15;
-    }
-    else if (left > too_close_threashold)
-    {
-        counter = 0;
-
-        printf("Left too close\n");
-        *lPow = 0.15;
-        *rPow = -0.05;
-    }
-    else if (right > too_close_threashold)
-    {
-        counter = 0;
-
-        printf("Right too close\n");
-        *lPow = -0.05;
-        *rPow = 0.15;
-    }
-    else
-    {
-        *lPow = 0.15;
-        *rPow = 0.15;
-        // printf("No obstacles\n");
-        // *lPow = std::max(-max_speed, std::min(max_speed, k * delta * 1.5f));  // More aggressive turn
-        // *rPow = std::max(-max_speed, std::min(max_speed, -k * delta * 1.5f)); // Turn proportionally
-    }
-
 }
