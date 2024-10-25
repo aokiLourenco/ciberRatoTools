@@ -9,6 +9,9 @@
 #include "robfunc.h"
 
 #define CENTER_POINT 25
+#define BUFFER_SIZE 10
+
+
 
 typedef struct 
 {
@@ -115,7 +118,7 @@ void check_for_walls(float left, float right, float center, float back, float co
             value.append("R");
         }
     }
-    else if (compass < -85.0f && compass > -90.0f)
+    else if (compass < -85.0f && compass > -95.0f)
     { // Looking down
         if (left > there_is_a_wall)
         {
@@ -138,7 +141,7 @@ void check_for_walls(float left, float right, float center, float back, float co
     // Sort the string
     std::sort(value.begin(), value.end());
 
-    std::cout << "Value: " << value  << "Current x :" << current_x << " Current y :" << current_y << std::endl;
+    std::cout << "Value: " << value << "left: " << left  << " ; Current x :" << current_x << " Current y :" << current_y << std::endl;
     maze->map[current_x][current_y]->wall = value;
 }
 
@@ -146,10 +149,20 @@ int retreive_map_in_memory()
 {
 }
 
+bool check_if_next_point_has_been_visited(maze_map *maze, int x, int y)
+{
+    if(maze->map[x][y]->wall.compare("") != 0){
+        return true;
+    }
+    return false;
+}
+
+
 void calculate_next_point(float xStart, float yStart, float current_angle, float *end_x, float *end_y, float *angle, double *distance, int * maze_x, int* maze_y, maze_map *maze)
 {
     if(*distance != -10.0f){
         *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
+        *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
     }
     // * Check if reached the next point
     if (*distance > 0.2f){
@@ -165,31 +178,63 @@ void calculate_next_point(float xStart, float yStart, float current_angle, float
     std::string wall =  maze->map[*maze_x][*maze_y]->wall;
     std::cout << "Wall: " << wall << std::endl;
 
+    bool enter = 1;
     // * Check if wall is on the right
-    if(wall.find("R") == std::string::npos){
+    if(wall.find("R") == std::string::npos && enter){
         *maze_x = *maze_x + 1;
         *end_x = maze->map[*maze_x][*maze_y]->x;
         *end_y = maze->map[*maze_x][*maze_y]->y;
+        enter = 0;
+        if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
+            *maze_x = *maze_x - 1;
+            enter = 1;
+        }
 
-    }else if(wall.find("U") == std::string::npos){
-        *maze_y = *maze_y - 1;
+    }
+
+    if(wall.find("U") == std::string::npos&& enter){
+        *maze_y = *maze_y + 1;
+
         *end_x = maze->map[*maze_x][*maze_y]->x;
         *end_y = maze->map[*maze_x][*maze_y]->y;
-    }else if(wall.find("L") == std::string::npos){
+        enter = 0;
+        if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
+            *maze_y = *maze_y - 1;
+            enter = 1;
+        }
+    }
+    
+    if(wall.find("D") == std::string::npos&& enter){
+        *maze_y = *maze_y - 1;
+
+        *end_x = maze->map[*maze_x][*maze_y]->x;
+        *end_y = maze->map[*maze_x][*maze_y]->y;
+        enter = 0;
+        if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
+            *maze_y = *maze_y + 1;
+            enter = 1;
+        }
+    }
+    
+    if(wall.find("L") == std::string::npos&& enter){
         *maze_x = *maze_x - 1;
         *end_x = maze->map[*maze_x][*maze_y]->x;
         *end_y = maze->map[*maze_x][*maze_y]->y;
-    }else if(wall.find("D") == std::string::npos){
-        *maze_y = *maze_y + 1;
-        *end_x = maze->map[*maze_x][*maze_y]->x;
-        *end_y = maze->map[*maze_x][*maze_y]->y;
+        enter = 0;
+        if(check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)){
+            *maze_x = *maze_x + 1;
+            enter = 1;
+        }
+    }
+
+    if(enter == 1){
+        // * Time to A*
     }
 
     *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
     *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
-
-
-
+    if( (int)*angle == 180) *angle = -180;
+    
 
 }
 
@@ -205,7 +250,7 @@ void calculate_all_map_positions(maze_map *maze, double first_x, double first_y)
         return;
     }
 
-    std::cout << "Calculating all map positions" << std::endl;
+    //std::cout << "Calculating all map positions" << std::endl;
 
     for(int j = -7; j<8; j++){
         for(int i = -14; i<15;i++){
@@ -278,7 +323,7 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     // * Compass varies from -180 to 180
     if (IsCompassReady())
     {
-        printf("Compass: %f\n", GetCompassSensor());
+        //printf("Compass: %f\n", GetCompassSensor());
 
         compass_direction = GetCompassSensor();
     }
@@ -304,8 +349,8 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     // * With the wall checked we can see if we< can move foward or not
     calculate_next_point(x,y,compass_direction ,&next_x, &next_y, &angle_to_turn,&distance_to_next_point, &current_map_x, &current_map_y, &maze);
 
-    std::cout << "Next point x: " << next_x << " y: " << next_y << " angle: " << (int) angle_to_turn << " distance: " << distance_to_next_point << std::endl;
-
+    std::cout << "Next point x: " << next_x << " y: " << next_y << " angle: " << (int) angle_to_turn << " distance: " << distance_to_next_point << "WALL : "<<  maze.map[current_map_x][current_map_y]->wall  << std::endl;
+    //std::cout << "Next point :" << current_map_x << " " << current_map_y << std::endl; 
 
     // * Rotate to the next point
 
@@ -320,12 +365,19 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     }
 
     // * Move to the next point
-    if (distance_to_next_point > 0.2f)
+    if (distance_to_next_point > 0.25f)
     {
         *lPow = 0.15;
         *rPow = 0.15;
         return;
     }
+
+
+
+
+
+
+
 
     if (count > 2)
     {

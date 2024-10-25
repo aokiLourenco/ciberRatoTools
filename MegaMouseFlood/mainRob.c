@@ -29,6 +29,10 @@ int main(int argc, char *argv[])
     int state=STOP, stoppedState=RUN, rob_id = 1;
     char lmap[CELLROWS*2-1][CELLCOLS*2-1]; // in this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to lmap[i*2][j*2].
                                            // to know if there is a wall on top of cell(i,j) (i in 0..5), check if the value of lmap[i*2+1][j*2] is space or not
+    
+    // double IRSensorAngles[NUM_IR_SENSORS] = {0, M_PI/2, -M_PI/2, M_PI};
+    // double irAngles[NUM_IR_SENSORS] = {0, M_PI/2, -M_PI/2, M_PI};
+
 
     printf( " Sample Robot\n Copyright (C) 2001-2019 Universidade de Aveiro\n" );
 
@@ -82,6 +86,7 @@ int main(int argc, char *argv[])
        printf( "%s Failed to connect\n", rob_name); 
        exit(1);
     }
+
     printf( "%s Connected\n", rob_name );
     state=STOP;
     while(1)
