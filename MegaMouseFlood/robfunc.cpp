@@ -228,6 +228,81 @@ void calculate_next_point(float xStart, float yStart, float current_angle, float
     *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
 }
 
+void Rotate_90_Left() {
+    auto get_true_compass = [](float compass) {
+        std::vector<float> compass_vector = {0, 90, -180, -90, 180};
+        auto next_cell_to_explore = [](const std::vector<float>& vec, float val) {
+            auto it = std::find(vec.begin(), vec.end(), val);
+            return (it != vec.end() && std::next(it) != vec.end()) ? std::distance(vec.begin(), std::next(it)) : 0;
+        };
+        float true_compass = compass_vector[next_cell_to_explore(compass_vector, compass)];
+        return (true_compass == 180) ? -180 : true_compass;
+    };
+
+    auto calculate_rotation_error = [](float current_compass, float target_compass) {
+        float rotation_error = target_compass - current_compass;
+        if (rotation_error > 120) {
+            rotation_error -= 360;
+        }
+        return rotation_error;
+    };
+
+    auto drive_with_rotation_error = [](float rotation_error) {
+        float Kd_angulo = 0.005f;
+        float rotation = Kd_angulo * rotation_error;
+        float right_motor_speed = rotation;
+        float left_motor_speed = -rotation;
+        DriveMotors(left_motor_speed, right_motor_speed);
+    };
+
+    float target_compass = get_true_compass(GetCompassSensor()) + 90;
+    float rotation_error = 100;
+
+    while (abs(rotation_error) >= 1) {
+        ReadSensors();
+        float current_compass = GetCompassSensor();
+        rotation_error = calculate_rotation_error(current_compass, target_compass);
+        drive_with_rotation_error(rotation_error);
+    }
+}
+
+void Rotate_90_Right() {
+    auto get_true_compass = [](float compass) {
+        std::vector<float> compass_vector = {0, 90, -180, -90, 180};
+        auto next_cell_to_explore = [](const std::vector<float>& vec, float val) {
+            auto it = std::find(vec.begin(), vec.end(), val);
+            return (it != vec.end() && std::next(it) != vec.end()) ? std::distance(vec.begin(), std::next(it)) : 0;
+        };
+        float true_compass = compass_vector[next_cell_to_explore(compass_vector, compass)];
+        return (true_compass == 180) ? -180 : true_compass;
+    };
+
+    auto calculate_rotation_error = [](float current_compass, float target_compass) {
+        float rotation_error = target_compass - current_compass;
+        if (rotation_error < -120) {
+            rotation_error -= 360;
+        }
+        return rotation_error;
+    };
+
+    auto drive_with_rotation_error = [](float rotation_error) {
+        float Kd_angulo = 0.005f;
+        float rotation = Kd_angulo * rotation_error;
+        float right_motor_speed = rotation;
+        float left_motor_speed = -rotation;
+        DriveMotors(left_motor_speed, right_motor_speed);
+    };
+
+    float target_compass = get_true_compass(GetCompassSensor()) - 90;
+    float rotation_error = 100;
+
+    while (abs(rotation_error) >= 1) {
+        ReadSensors();
+        float current_compass = GetCompassSensor();
+        rotation_error = calculate_rotation_error(current_compass, target_compass);
+        drive_with_rotation_error(rotation_error);
+    }
+}
 
 void calculate_all_map_positions(maze_map *maze, double first_x, double first_y)
 {
@@ -349,6 +424,22 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     float error_x = angle_to_turn - compass_direction;
     float error_x_start = pid_angle.previous_error;
 
+    // * Rotate to the next point
+    if((int) angle_to_turn == 180 && compass_direction > -180 && compass_direction < 0){
+        Rotate_90_Left();
+        return;
+    }else if((int) angle_to_turn == -180 && compass_direction < 180 && compass_direction > 0){
+        Rotate_90_Right();
+        return;
+
+    }else if (compass_direction > (int) angle_to_turn){
+        Rotate_90_Left();
+        return;
+    }else if (compass_direction < (int) angle_to_turn){
+        Rotate_90_Right();
+        return;
+    }
+
     // ! This is not working well but its something
     if (abs(compass_direction) <= 45) {
         float rotation = calculateYPID(pid_angle, error_y, error_y_start);
@@ -372,26 +463,6 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
         return;
     }
 
-    // * Rotate to the next point
-
-    // if((int) angle_to_turn == 180 && compass_direction > -180 && compass_direction < 0){
-    //     *lPow = 0.15;
-    //     *rPow = -0.15;
-    //     return;
-    // }else if((int) angle_to_turn == -180 && compass_direction < 180 && compass_direction > 0){
-    //     *lPow = -0.15;
-    //     *rPow = 0.15;
-    //     return;
-
-    // }else if (compass_direction > (int) angle_to_turn){
-    //     *lPow = 0.15;
-    //     *rPow = -0.15;
-    //     return;
-    // }else if (compass_direction < (int) angle_to_turn){
-    //     *lPow = -0.15;
-    //     *rPow = 0.15;
-    //     return;
-    // }
 
     // * Move to the next point
     if (distance_to_next_point > 0.1f)
