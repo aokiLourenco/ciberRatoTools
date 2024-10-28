@@ -58,20 +58,6 @@ float calculateXPID(PIDController &pid, float error_x, float error_x_start) {
     return rotation;
 }
 
-// *
-// *
-// *
-// *
-// *
-// *
-// TODO: Maybe implement a Rotate_90_Left() and Rotate_90_Right() functions using PID controller.
-// *
-// *
-// *
-// *
-// *
-// *
-
 void print_sensors(float left, float right, float center, float back)
 {
     printf("left: %f \n", left);
@@ -162,7 +148,7 @@ void calculate_next_point(float xStart, float yStart, float current_angle, float
     }
 
     // Check if reached the next point
-    if (*distance > 0.1f) {
+    if (*distance > 0.15f) {
         return;
     }
 
@@ -189,20 +175,6 @@ void calculate_next_point(float xStart, float yStart, float current_angle, float
         {-1, 0, 'L'}  // Move left
     };
 
-    // Prioritize left move if walls 'R' and 'U' are present
-    if (wall.find('R') != std::string::npos && wall.find('U') != std::string::npos) {
-        if (wall.find('L') == std::string::npos) {
-            *maze_x -= 1;
-            *end_x = maze->map[*maze_x][*maze_y]->x;
-            *end_y = maze->map[*maze_x][*maze_y]->y;
-            if (!check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)) {
-                enter = false;
-            } else {
-                *maze_x += 1; // Revert move if already visited
-            }
-        }
-    }
-
     for (const auto& move : moves) {
         if (wall.find(move.wall_char) == std::string::npos && enter) {
             *maze_x += move.dx;
@@ -224,8 +196,10 @@ void calculate_next_point(float xStart, float yStart, float current_angle, float
     }
 
     // Calculate distance and angle to the next point
+    // calculate only when reached the next point
     *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
     *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
+    return;
 }
 
 void Rotate_90_Left() {
@@ -329,6 +303,46 @@ void calculate_all_map_positions(maze_map *maze, double first_x, double first_y)
     }    
 }
 
+void fix_direction (float angle_to_turn, float compass_direction, float max_speed, float *lPow, float *rPow) {
+
+    static PIDController pid_angle;
+    static bool pid_initialized = false;
+    if (!pid_initialized) {
+        initializePID(pid_angle, 0.01f, 0.1f); // Adjust PID parameters as needed
+        pid_initialized = true;
+    }
+
+    float error_y = angle_to_turn - compass_direction;
+    float error_y_start = pid_angle.previous_error;
+
+    float error_x = angle_to_turn - compass_direction;
+    float error_x_start = pid_angle.previous_error;
+
+    // ! This is not working well but its something
+    if (abs(compass_direction) <= 45) {
+        float rotation = calculateYPID(pid_angle, error_y, error_y_start);
+        *lPow = max_speed - rotation;
+        *rPow = max_speed + rotation;
+        return;
+    } else if (abs(compass_direction) >= 135) {
+        float rotation = calculateYPID(pid_angle, error_y, error_y_start);
+        *lPow = max_speed + rotation;
+        *rPow = max_speed - rotation;
+        return;
+    } else if (compass_direction > 45 && compass_direction <= 135) {
+        float rotation = calculateXPID(pid_angle, error_x, error_x_start);
+        *lPow = max_speed + rotation;
+        *rPow = max_speed - rotation;
+        return;
+    } else if (compass_direction < -45 && compass_direction > -135) {
+        float rotation = calculateXPID(pid_angle, error_x, error_x_start);
+        *lPow = max_speed - rotation;
+        *rPow = max_speed + rotation;
+        return;
+    }
+
+}
+
 void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
 {
 
@@ -411,62 +425,40 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
     std::cout << "Next point x: " << next_x << " y: " << next_y << " angle: " << (int) angle_to_turn << " distance: " << distance_to_next_point << "\nWALL : "<<  maze.map[current_map_x][current_map_y]->wall << "\nMy angle: " << compass_direction  << std::endl;
     std::cout << "\nNext point :" << current_map_x << " " << current_map_y << "\n" << std::endl; 
 
-    static PIDController pid_angle;
-    static bool pid_initialized = false;
-    if (!pid_initialized) {
-        initializePID(pid_angle, 0.01f, 0.1f); // Adjust PID parameters as needed
-        pid_initialized = true;
-    }
-
-    float error_y = angle_to_turn - compass_direction;
-    float error_y_start = pid_angle.previous_error;
-
-    float error_x = angle_to_turn - compass_direction;
-    float error_x_start = pid_angle.previous_error;
-
     // * Rotate to the next point
-    if((int) angle_to_turn == 180 && compass_direction > -180 && compass_direction < 0){
-        Rotate_90_Left();
-        return;
-    }else if((int) angle_to_turn == -180 && compass_direction < 180 && compass_direction > 0){
-        Rotate_90_Right();
-        return;
+    // if((int) angle_to_turn == 180 && compass_direction > -180 && compass_direction < 0){
+    //     std::cout << "------------------------------------------------------------" << std::endl;
+    //     Rotate_90_Left();
+    //     return;
+    // }else if((int) angle_to_turn == -180 && compass_direction < 180 && compass_direction > 0){
+    //     std::cout << "=============================================================" << std::endl;
+    //     Rotate_90_Right();
+    //     return;
 
-    }else if (compass_direction > (int) angle_to_turn){
+    // }else if (compass_direction > (int) angle_to_turn){
+    //     std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
+    //     Rotate_90_Left();
+    //     return;
+    // }else if (compass_direction < (int) angle_to_turn){
+    //     std::cout << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" << std::endl;
+    //     Rotate_90_Right();
+    //     return;
+    // }
+
+    if ((compass_direction < (int) angle_to_turn) && ((int) angle_to_turn <= 90) && ((int) angle_to_turn >= 85))
+    {
         Rotate_90_Left();
         return;
-    }else if (compass_direction < (int) angle_to_turn){
+    } else if ((compass_direction > (int) angle_to_turn) && ((int) angle_to_turn <= 0) && ((int) angle_to_turn >= -5))
+    {
         Rotate_90_Right();
         return;
     }
-
-    // ! This is not working well but its something
-    if (abs(compass_direction) <= 45) {
-        float rotation = calculateYPID(pid_angle, error_y, error_y_start);
-        *lPow = max_speed - rotation;
-        *rPow = max_speed + rotation;
-        return;
-    } else if (abs(compass_direction) >= 135) {
-        float rotation = calculateYPID(pid_angle, error_y, error_y_start);
-        *lPow = max_speed + rotation;
-        *rPow = max_speed - rotation;
-        return;
-    } else if (compass_direction > 45 && compass_direction <= 135) {
-        float rotation = calculateXPID(pid_angle, error_x, error_x_start);
-        *lPow = max_speed + rotation;
-        *rPow = max_speed - rotation;
-        return;
-    } else if (compass_direction < -45 && compass_direction > -135) {
-        float rotation = calculateXPID(pid_angle, error_x, error_x_start);
-        *lPow = max_speed - rotation;
-        *rPow = max_speed + rotation;
-        return;
-    }
-
 
     // * Move to the next point
-    if (distance_to_next_point > 0.1f)
+    if (distance_to_next_point > 0.15f)
     {
+        fix_direction(angle_to_turn, compass_direction, max_speed, lPow, rPow);
         *lPow = 0.15;
         *rPow = 0.15;
         return;
