@@ -14,453 +14,482 @@
 #include "robfunc.h"
 #include <bits/algorithmfwd.h>
 
-#define CENTER_POINT 25
-#define BUFFER_SIZE 10
 
+#define CELLROWS 7
+#define CELLCOLS 14
 
-typedef struct 
-{
-    double x;
-    double y;
-    std::string wall;
-} maze_data;
+using namespace std;
 
-typedef struct
-{
-                //  x  y
-    maze_data* map[50][50];
+class MyRob : public CRobLinkAngs {
+public:
+    MyRob(string rob_name, int rob_id, vector<double> angles, string host) {
+        // Initialize the base class
+        // CRobLinkAngs(rob_name, rob_id, angles, host);
+        lap_time = 0;
+        ReadSensors();
 
-} maze_map;
+        MAP.resize(27, vector<int>(55, 10));
+        MAP_x_current = MAP_y_current = vector<int>();
 
-struct PIDController {
-    float Kp;
-    float Kd;
-    float previous_error;
-};
+        GPS_x_initial = measures.x;
+        GPS_y_initial = measures.y;
+        GPS_x_start = measures.x;
+        GPS_y_start = measures.y;
+    }
 
-void initializePID(PIDController &pid, float Kp, float Kd) {
-    pid.Kp = Kp;
-    pid.Kd = Kd;
-    pid.previous_error = 0.0f;
-}
+    void setMap(vector<vector<char>> labMap) {
+        this->labMap = labMap;
+    }
 
-// ! Calculate PID for Y axis (supostamente bem xd)
-float calculateYPID(PIDController &pid, float error_y, float error_y_start) {
-    float rotation = error_y * pid.Kp + (error_y - error_y_start) / 2 * pid.Kd;
-    pid.previous_error = error_y;
-    return rotation;
-}
-
-// ! Calculate PID for X axis (supostamente bem xd)
-float calculateXPID(PIDController &pid, float error_x, float error_x_start) {
-    float rotation = error_x * pid.Kp + (error_x - error_x_start) / 2 * pid.Kd;
-    pid.previous_error = error_x;
-    return rotation;
-}
-
-void print_sensors(float left, float right, float center, float back)
-{
-    printf("left: %f \n", left);
-    printf("right: %f\n", right);
-    printf("center: %f\n", center);
-    printf("back: %f\n", back);
-    printf("-------------------------- \n");
-}
-
-void print_motors(float lPow, float rPow)
-{
-    printf("left: %f \n", lPow);
-    printf("right: %f\n", rPow);
-    printf("++++++++++++++++++++\n");
-}
-
-void store_map__in_memory(maze_map *maze, int x, int y, std::string value)
-{
-
-    // L = Left, R = Right, U = Up, D = Down
-    std::map<std::string, std::string> map_values = {{"L", "1"}, {"U", "2"}, {"R", "3"}, {"D", "4"}, {"DL", "5"}, {"DR", "6"}, {"RU", "7"}, {"LU", "8"}, {"LR", "9"}, {"DU", "10"}, {"DLR", "11"}, {"DRU", "12"}, {"LRU", "13"}, {"DLU", "14"}, {"", "15"}, {"DLRU", "16"}};
-
-    maze->map[x][y]->wall = map_values[value];
-}
-
-void check_for_walls(float left, float right, float center, float back, float compass, int current_x, int current_y, maze_map *maze)
-{
-    char value[5] = {0}; // Use a character array to store wall information
-    int index = 0;
-
-    float there_is_a_wall = 1.5f;
-
-    // Lookup table for compass directions
-    struct WallCheck {
-        float min_angle;
-        float max_angle;
-        char left_wall;
-        char right_wall;
-        char center_wall;
-        char back_wall;
-    };  
-
-    WallCheck wall_checks[] = {
-        {-15.0f, 15.0f, 'U', 'D', 'R', 'L'},   // Looking right
-        {85.0f, 95.0f, 'L', 'R', 'U', 'D'},    // Looking up
-        {175.0f, -175.0f, 'D', 'U', 'L', 'R'}, // Looking left
-        {-95.0f, -85.0f, 'R', 'L', 'D', 'U'}   // Looking down
-    };
-
-    for (const auto& check : wall_checks) {
-        if (compass > check.min_angle && compass < check.max_angle) {
-            if (left > there_is_a_wall) value[index++] = check.left_wall;
-            if (right > there_is_a_wall) value[index++] = check.right_wall;
-            if (center > there_is_a_wall) value[index++] = check.center_wall;
-            if (back > there_is_a_wall) value[index++] = check.back_wall;
-            break;
+    void printMap() {
+        for (auto it = labMap.rbegin(); it != labMap.rend(); ++it) {
+            for (auto l : *it) {
+                cout << l;
+            }
+            cout << endl;
         }
     }
 
-    value[index] = '\0'; // Null-terminate the character array
+    void run() {
+        if (status != 0) {
+            cout << "Connection refused or error" << endl;
+            exit(1);
+        }
 
-    std::sort(value, value + index); // Sort the character array
+        string state = "stop";
+        string stopped_state = "run";
 
-    std::cout << "Value: " << value << " left: " << left << " ; Current x: " << current_x << " Current y: " << current_y << std::endl;
-    maze->map[current_x][current_y]->wall = value;
-}
+        while (true) {
+            ReadSensors();
 
-int retreive_map_in_memory()
-{
-    return 0;
-}
+            measures.gpsReady = true;
+            measures.gpsDirReady = true;
 
-bool check_if_next_point_has_been_visited(maze_map *maze, int x, int y)
-{
-    if(maze->map[x][y]->wall.compare("") != 0){
-        std::cout << "Point has been visited" << std::endl;
-        return true;
-    }
-    return false;
-}
+            if (measures.endLed) {
+                cout << robName << " exiting" << endl;
+                exit(0);
+            }
 
-void calculate_next_point(float xStart, float yStart, float current_angle, float *end_x, float *end_y, float *angle, double *distance, int *maze_x, int *maze_y, maze_map *maze)
-{
-    // Calculate distance and angle only if distance is not initialized
-    if (*distance != -10.0f) {
-        *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
-        *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
-    }
+            if (state == "stop" && measures.start) {
+                state = stopped_state;
+            }
 
-    // Check if reached the next point
-    if (*distance > 0.15f) {
-        return;
-    }
+            if (state != "stop" && measures.stop) {
+                stopped_state = state;
+                state = "stop";
+            }
 
-    // From the current position, calculate the possible next move, using the map as reference
-    std::cout << "Current position x: " << *maze_x << " y: " << *maze_y << std::endl;
-
-    // Check current position and see where there is no wall
-    std::string wall = maze->map[*maze_x][*maze_y]->wall;
-    std::cout << "Wall: " << wall << std::endl;
-
-    bool enter = true;
-
-    // Define possible moves and their corresponding wall checks
-    struct Move {
-        int dx;
-        int dy;
-        char wall_char;
-    };
-
-    std::vector<Move> moves = {
-        {1, 0, 'R'},  // Move right
-        {0, -1, 'U'}, // Move up
-        {0, 1, 'D'},  // Move down
-        {-1, 0, 'L'}  // Move left
-    };
-
-    for (const auto& move : moves) {
-        if (wall.find(move.wall_char) == std::string::npos && enter) {
-            *maze_x += move.dx;
-            *maze_y += move.dy;
-            *end_x = maze->map[*maze_x][*maze_y]->x;
-            *end_y = maze->map[*maze_x][*maze_y]->y;
-            enter = false;
-            if (check_if_next_point_has_been_visited(maze, *maze_x, *maze_y)) {
-                *maze_x -= move.dx;
-                *maze_y -= move.dy;
-                enter = true;
+            if (state == "run") {
+                if (measures.visitingLed) {
+                    state = "wait";
+                }
+                if (measures.ground == 0) {
+                    SetVisitingLed(true);
+                }
+                wander();
+            } else if (state == "wait") {
+                SetReturningLed(true);
+                if (measures.visitingLed) {
+                    SetVisitingLed(false);
+                }
+                if (measures.returningLed) {
+                    state = "return";
+                }
+                DriveMotors(0.0, 0.0);
+            } else if (state == "return") {
+                if (measures.visitingLed) {
+                    SetVisitingLed(false);
+                }
+                if (measures.returningLed) {
+                    SetReturningLed(false);
+                }
+                wander();
             }
         }
     }
 
-    if (enter) {
-        std::cout << "No valid move found, consider using a pathfinding algorithm." << std::endl;
-        // Time to use A* or another pathfinding algorithm
-    }
-
-    // Calculate distance and angle to the next point
-    // calculate only when reached the next point
-    *distance = sqrt(pow(*end_x - xStart, 2) + pow(*end_y - yStart, 2));
-    *angle = atan2(*end_y - yStart, *end_x - xStart) * 180 / M_PI;
-    return;
-}
-
-void Rotate_90_Left() {
-    auto get_true_compass = [](float compass) {
-        std::vector<float> compass_vector = {0, 90, -180, -90, 180};
-        auto next_cell_to_explore = [](const std::vector<float>& vec, float val) {
-            auto it = std::find(vec.begin(), vec.end(), val);
-            return (it != vec.end() && std::next(it) != vec.end()) ? std::distance(vec.begin(), std::next(it)) : 0;
-        };
-        float true_compass = compass_vector[next_cell_to_explore(compass_vector, compass)];
-        return (true_compass == 180) ? -180 : true_compass;
-    };
-
-    auto calculate_rotation_error = [](float current_compass, float target_compass) {
-        float rotation_error = target_compass - current_compass;
-        if (rotation_error > 120) {
-            rotation_error -= 360;
-        }
-        return rotation_error;
-    };
-
-    auto drive_with_rotation_error = [](float rotation_error) {
-        float Kd_angulo = 0.005f;
-        float rotation = Kd_angulo * rotation_error;
-        float right_motor_speed = rotation;
-        float left_motor_speed = -rotation;
-        DriveMotors(left_motor_speed, right_motor_speed);
-    };
-
-    float target_compass = get_true_compass(GetCompassSensor()) + 90;
-    float rotation_error = 100;
-
-    while (abs(rotation_error) >= 1) {
+    vector<bool> DefineQuadrant() {
         ReadSensors();
-        float current_compass = GetCompassSensor();
-        rotation_error = calculate_rotation_error(current_compass, target_compass);
-        drive_with_rotation_error(rotation_error);
-    }
-}
+        double compass = measures.compass;
 
-void Rotate_90_Right() {
-    auto get_true_compass = [](float compass) {
-        std::vector<float> compass_vector = {0, 90, -180, -90, 180};
-        auto next_cell_to_explore = [](const std::vector<float>& vec, float val) {
-            auto it = std::find(vec.begin(), vec.end(), val);
-            return (it != vec.end() && std::next(it) != vec.end()) ? std::distance(vec.begin(), std::next(it)) : 0;
-        };
-        float true_compass = compass_vector[next_cell_to_explore(compass_vector, compass)];
-        return (true_compass == 180) ? -180 : true_compass;
-    };
+        vector<bool> Quadrant(4, false);
 
-    auto calculate_rotation_error = [](float current_compass, float target_compass) {
-        float rotation_error = target_compass - current_compass;
-        if (rotation_error < -120) {
-            rotation_error -= 360;
+        if (abs(compass) <= 45) {
+            Quadrant[0] = true;
+        } else if (compass > 45 && compass <= 135) {
+            Quadrant[1] = true;
+        } else if (abs(compass) >= 135) {
+            Quadrant[2] = true;
+        } else if (compass <= -45 && compass >= -135) {
+            Quadrant[3] = true;
         }
-        return rotation_error;
-    };
 
-    auto drive_with_rotation_error = [](float rotation_error) {
-        float Kd_angulo = 0.005f;
-        float rotation = Kd_angulo * rotation_error;
-        float right_motor_speed = rotation;
-        float left_motor_speed = -rotation;
-        DriveMotors(left_motor_speed, right_motor_speed);
-    };
+        return Quadrant;
+    }
 
-    float target_compass = get_true_compass(GetCompassSensor()) - 90;
-    float rotation_error = 100;
+    tuple<int, int, int, int, int, int> Mapper(vector<bool> flags, int y, int x) {
+        const int CENTER = 0;
+        const int LEFT = 1;
+        const int RIGHT = 2;
+        const double threshold = 1.15;
 
-    while (abs(rotation_error) >= 1) {
         ReadSensors();
-        float current_compass = GetCompassSensor();
-        rotation_error = calculate_rotation_error(current_compass, target_compass);
-        drive_with_rotation_error(rotation_error);
-    }
-}
 
-void calculate_all_map_positions(maze_map *maze, double first_x, double first_y)
-{
-    // * Calculate all the positions in the map
-    // * This will be used to calculate the next point to move
-    // * The map is a 50 x 50 array, so the center is always 25,25
-    // * The real map will be drawn inside this 50 x 50 array
-    // * The map[25][25] is the middle point, it will calculate 14 for left and right, and 7 up and down
-    if(maze->map[CENTER_POINT][CENTER_POINT] != NULL){
-        return;
-    }
+        double center_sensor = measures.irSensor[CENTER];
+        double left_sensor = measures.irSensor[LEFT];
+        double right_sensor = measures.irSensor[RIGHT];
 
-    //std::cout << "Calculating all map positions" << std::endl;
+        auto update_map = [&](double sensor_value, double threshold, tuple<int, int, int, int> map_coords, int wall_value, int empty_value, int explore_value) {
+            if (sensor_value >= threshold) {
+                MAP[get<0>(map_coords)][get<1>(map_coords)] = wall_value;
+            } else {
+                MAP[get<0>(map_coords)][get<1>(map_coords)] = empty_value;
+                if (MAP[get<2>(map_coords)][get<3>(map_coords)] != 80) {
+                    MAP[get<2>(map_coords)][get<3>(map_coords)] = explore_value;
+                }
+            }
+        };
 
-    for(int j = -7; j<8; j++){
-        for(int i = -14; i<15;i++){
-            // * Calculate the position and store it in the map
+        int ahead, ahead2, right, right2, left, left2;
 
-            maze->map[CENTER_POINT + i][CENTER_POINT + j] = new maze_data();
-            maze->map[CENTER_POINT + i][CENTER_POINT + j]->x = first_x + i*2.0f;
-            maze->map[CENTER_POINT + i][CENTER_POINT + j]->y = first_y - j*2.0f;
-            maze->map[CENTER_POINT + i][CENTER_POINT + j]->wall = "";
+        if (flags[0]) {
+            update_map(center_sensor, threshold, make_tuple(y, x + 1, y, x + 2), 30, 20, 60);
+            update_map(left_sensor, threshold, make_tuple(y - 1, x, y - 2, x), 40, 20, 60);
+            update_map(right_sensor, threshold, make_tuple(y + 1, x, y + 2, x), 40, 20, 60);
+
+            ahead = MAP[y][x + 1];
+            ahead2 = MAP[y][x + 2];
+            right = MAP[y + 1][x];
+            right2 = MAP[y + 2][x];
+            left = MAP[y - 1][x];
+            left2 = MAP[y - 2][x];
+        } else if (flags[1]) {
+            update_map(center_sensor, threshold, make_tuple(y - 1, x, y - 2, x), 40, 20, 60);
+            update_map(left_sensor, threshold, make_tuple(y, x - 1, y, x - 2), 30, 20, 60);
+            update_map(right_sensor, threshold, make_tuple(y, x + 1, y, x + 2), 30, 20, 60);
+
+            ahead = MAP[y - 1][x];
+            ahead2 = MAP[y - 2][x];
+            right = MAP[y][x + 1];
+            right2 = MAP[y][x + 2];
+            left = MAP[y][x - 1];
+            left2 = MAP[y][x - 2];
+        } else if (flags[2]) {
+            update_map(center_sensor, threshold, make_tuple(y, x - 1, y, x - 2), 30, 20, 60);
+            update_map(left_sensor, threshold, make_tuple(y + 1, x, y + 2, x), 40, 20, 60);
+            update_map(right_sensor, threshold, make_tuple(y - 1, x, y - 2, x), 40, 20, 60);
+
+            ahead = MAP[y][x - 1];
+            ahead2 = MAP[y][x - 2];
+            right = MAP[y - 1][x];
+            right2 = MAP[y - 2][x];
+            left = MAP[y + 1][x];
+            left2 = MAP[y + 2][x];
+        } else if (flags[3]) {
+            update_map(center_sensor, threshold, make_tuple(y + 1, x, y + 2, x), 40, 20, 60);
+            update_map(left_sensor, threshold, make_tuple(y, x + 1, y, x + 2), 30, 20, 60);
+            update_map(right_sensor, threshold, make_tuple(y, x - 1, y, x - 2), 30, 20, 60);
+
+            ahead = MAP[y + 1][x];
+            ahead2 = MAP[y + 2][x];
+            right = MAP[y][x - 1];
+            right2 = MAP[y][x - 2];
+            left = MAP[y][x + 1];
+            left2 = MAP[y][x + 2];
         }
-    }    
-}
 
-void fix_direction (float angle_to_turn, float compass_direction, float max_speed, float *lPow, float *rPow) {
-
-    static PIDController pid_angle;
-    static bool pid_initialized = false;
-    if (!pid_initialized) {
-        initializePID(pid_angle, 0.01f, 0.1f); // Adjust PID parameters as needed
-        pid_initialized = true;
+        return make_tuple(ahead, ahead2, right, right2, left, left2);
     }
 
-    float error_y = angle_to_turn - compass_direction;
-    float error_y_start = pid_angle.previous_error;
+    void Move(vector<bool> Z) {
+        ReadSensors();
 
-    float error_x = angle_to_turn - compass_direction;
-    float error_x_start = pid_angle.previous_error;
+        double GPS_x = measures.x - GPS_x_initial;
+        double GPS_y = measures.y - GPS_y_initial;
 
-    // ! This is not working well but its something
-    if (abs(compass_direction) <= 45) {
-        float rotation = calculateYPID(pid_angle, error_y, error_y_start);
-        *lPow = max_speed - rotation;
-        *rPow = max_speed + rotation;
-        return;
-    } else if (abs(compass_direction) >= 135) {
-        float rotation = calculateYPID(pid_angle, error_y, error_y_start);
-        *lPow = max_speed + rotation;
-        *rPow = max_speed - rotation;
-        return;
-    } else if (compass_direction > 45 && compass_direction <= 135) {
-        float rotation = calculateXPID(pid_angle, error_x, error_x_start);
-        *lPow = max_speed + rotation;
-        *rPow = max_speed - rotation;
-        return;
-    } else if (compass_direction < -45 && compass_direction > -135) {
-        float rotation = calculateXPID(pid_angle, error_x, error_x_start);
-        *lPow = max_speed - rotation;
-        *rPow = max_speed + rotation;
-        return;
-    }
+        vector<int> GPS_x_current_vet = get_current_position_vector(-26, 28, 2);
+        GPS_x_current = GPS_x_current_vet[next_cell_to_explore(GPS_x_current_vet, GPS_x)];
 
-}
+        vector<int> GPS_y_current_vet = get_current_position_vector(-12, 14, 2);
+        GPS_y_current = GPS_y_current_vet[next_cell_to_explore(GPS_y_current_vet, GPS_y)];
 
-void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow)
-{
+        double error_x = 100, error_y = 100;
+        double error_x_last = 0, error_y_last = 0;
 
-    // * Variables
-    int compass_direction = 0;                                  // Direction it's facing
-    float left, right, center, back;                            // Sensor values
+        const double lin = 0.115;
+        const double kp = 0.01;
+        const double kd = 0.1;
+        const double threshold = 0.225;
 
-    // * Static Variables
-    static int counter = 0, count = 0;      
-    
-    static float too_close_threashold = 1.0f;                   // IF the distance is less than this, then it is too close
-    static float close_threashold = 0.6f;                       // If the distance is less than this, then it is close
-    
-    static int current_map_x = CENTER_POINT, current_map_y = CENTER_POINT;     // First position in the map
-    
-    static double first_x = 12345.00;                           // First x position in the GPS (it is not the same every run, so this value is changed)    
-    static double first_y = 12345.00;                           // First y position in the GPS (it is not the same every run, so this value is changed)    
-    
-    static maze_map maze;                                       // The map
-    
-    static float next_x, next_y,angle_to_turn;                  // Values to recieve after calculating the next point
-    
-    static double distance_to_next_point = -10.0f;                // Distance to the next point
+        while ((Z[0] && error_x > threshold) || (Z[1] && error_y > threshold) || (Z[2] && error_x > threshold) || (Z[3] && error_y > threshold)) {
+            ReadSensors();
+            GPS_x = measures.x - GPS_x_initial;
+            GPS_y = measures.y - GPS_y_initial;
 
+            if (Z[0]) {
+                error_x = (GPS_x_current + 2) - GPS_x;
+                error_y = GPS_y_current - GPS_y;
+                double rot = error_y * kp + (error_y - error_y_last) / 2 * kd;
+                double right_rotation = lin + rot;
+                double left_rotation = lin - rot;
+                DriveMotors(left_rotation, right_rotation);
+                error_y_last = error_y;
+            }
 
-    // * Read sensors
-    if (IsObstacleReady(LEFT))
-        left = GetObstacleSensor(LEFT);
-    if (IsObstacleReady(RIGHT))
-        right = GetObstacleSensor(RIGHT);
-    if (IsObstacleReady(CENTER))
-        center = GetObstacleSensor(CENTER);
-    if (IsObstacleReady(OTHER1))
-        back = GetObstacleSensor(OTHER1);
+            if (Z[1]) {
+                error_x = GPS_x_current - GPS_x;
+                error_y = (GPS_y_current + 2) - GPS_y;
+                double rot = error_x * kp + (error_x - error_x_last) / 2 * kd;
+                double right_rotation = lin - rot;
+                double left_rotation = lin + rot;
+                DriveMotors(left_rotation, right_rotation);
+                error_x_last = error_x;
+            }
 
-    // * Calculate values to move
-    float k = 0.03f;
-    const float max_speed = 0.15f;
+            if (Z[2]) {
+                error_x = GPS_x - (GPS_x_current - 2);
+                error_y = GPS_y - GPS_y_current;
+                double rot = error_y * kp + (error_y - error_y_last) / 2 * kd;
+                double right_rotation = lin + rot;
+                double left_rotation = lin - rot;
+                DriveMotors(left_rotation, right_rotation);
+                error_y_last = error_y;
+            }
 
-    float delta = left - right;
-
-    double x, y;
-
-    // * Get current position from the gps and compass
-
-    if (IsGPSReady())
-    {
-
-        x = GetX();
-        y = GetY();
-        if (first_x == 12345.00)
-        {
-            // * Set the first position (GPS is not the same every run, so it needs this to move to the next point)
-            first_x = GetX();
-            first_y = GetY();
+            if (Z[3]) {
+                error_x = GPS_x - GPS_x_current;
+                error_y = GPS_y - (GPS_y_current - 2);
+                double rot = error_x * kp + (error_x - error_x_last) / 2 * kd;
+                double right_rotation = lin - rot;
+                double left_rotation = lin + rot;
+                DriveMotors(left_rotation, right_rotation);
+                error_x_last = error_x;
+            }
         }
     }
 
-    // * Compass varies from -180 to 180
-    if (IsCompassReady())
-    {
-        //printf("Compass: %f\n", GetCompassSensor());
-        compass_direction = GetCompassSensor();
+    void Rotate_90_Left() {
+        auto get_true_compass = [&](double compass) {
+            vector<int> compass_vector = {0, 90, -180, -90, 180};
+            int true_compass = compass_vector[next_cell_to_explore(compass_vector, compass)];
+            return true_compass == 180 ? -180 : true_compass;
+        };
+
+        auto calculate_rotation_error = [&](double current_compass, double target_compass) {
+            double rotation_error = target_compass - current_compass;
+            if (rotation_error > 120) {
+                rotation_error -= 360;
+            }
+            return rotation_error;
+        };
+
+        auto drive_with_rotation_error = [&](double rotation_error) {
+            const double Kd_angulo = 0.005;
+            double rotation = Kd_angulo * rotation_error;
+            double right_motor_speed = rotation;
+            double left_motor_speed = -rotation;
+            DriveMotors(left_motor_speed, right_motor_speed);
+        };
+
+        double target_compass = get_true_compass(measures.compass) + 90;
+        double rotation_error = 100;
+
+        while (abs(rotation_error) >= 1) {
+            ReadSensors();
+            double current_compass = measures.compass;
+            rotation_error = calculate_rotation_error(current_compass, target_compass);
+            drive_with_rotation_error(rotation_error);
+        }
     }
 
-    //printf("Walls %s\n", check_for_walls(left, right, center, back, compass_direction).c_str());
-    // float next_x, next_y = calculate_next_point(x, y);
+    void Rotate_90_Right() {
+        auto get_true_compass = [&](double compass) {
+            vector<int> compass_vector = {0, 90, -180, -90, 180};
+            int true_compass = compass_vector[next_cell_to_explore(compass_vector, compass)];
+            return true_compass == 180 ? -180 : true_compass;
+        };
 
-    // * Store the values in the map
-    // * As we don't know the starting position, we can consider the map as a 50 x 50 array, and the center point is always 25
-    // * That way, the real map can be drawn inside the 50 x 50 array
-    calculate_all_map_positions(&maze, first_x, first_y);
+        auto calculate_rotation_error = [&](double current_compass, double target_compass) {
+            double rotation_error = target_compass - current_compass;
+            if (rotation_error < -120) {
+                rotation_error += 360;
+            }
+            return rotation_error;
+        };
 
-    // * Check for walls in the cell, and store it in the map
-    check_for_walls(left, right, center, back, compass_direction, current_map_x, current_map_y, &maze);
+        auto drive_with_rotation_error = [&](double rotation_error) {
+            const double Kd_angulo = 0.005;
+            double rotation = Kd_angulo * rotation_error;
+            double right_motor_speed = rotation;
+            double left_motor_speed = -rotation;
+            DriveMotors(left_motor_speed, right_motor_speed);
+        };
 
-    // * With the wall checked we can see if we< can move foward or not
-    calculate_next_point(x,y,compass_direction ,&next_x, &next_y, &angle_to_turn,&distance_to_next_point, &current_map_x, &current_map_y, &maze);
+        double target_compass = get_true_compass(measures.compass) - 90;
+        double rotation_error = 100;
 
-    std::cout << "Next point x: " << next_x << " y: " << next_y << " angle: " << (int) angle_to_turn << " distance: " << distance_to_next_point << "\nWALL : "<<  maze.map[current_map_x][current_map_y]->wall << "\nMy angle: " << compass_direction  << std::endl;
-    std::cout << "\nNext point :" << current_map_x << " " << current_map_y << "\n" << std::endl; 
-
-    // * Rotate to the next point
-    // if((int) angle_to_turn == 180 && compass_direction > -180 && compass_direction < 0){
-    //     std::cout << "------------------------------------------------------------" << std::endl;
-    //     Rotate_90_Left();
-    //     return;
-    // }else if((int) angle_to_turn == -180 && compass_direction < 180 && compass_direction > 0){
-    //     std::cout << "=============================================================" << std::endl;
-    //     Rotate_90_Right();
-    //     return;
-
-    // }else if (compass_direction > (int) angle_to_turn){
-    //     std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
-    //     Rotate_90_Left();
-    //     return;
-    // }else if (compass_direction < (int) angle_to_turn){
-    //     std::cout << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" << std::endl;
-    //     Rotate_90_Right();
-    //     return;
-    // }
-
-    if ((compass_direction < (int) angle_to_turn) && ((int) angle_to_turn <= 90) && ((int) angle_to_turn >= 85))
-    {
-        Rotate_90_Left();
-        return;
-    } else if ((compass_direction > (int) angle_to_turn) && ((int) angle_to_turn <= 0) && ((int) angle_to_turn >= -5))
-    {
-        Rotate_90_Right();
-        return;
+        while (abs(rotation_error) >= 1) {
+            ReadSensors();
+            double current_compass = measures.compass;
+            rotation_error = calculate_rotation_error(current_compass, target_compass);
+            drive_with_rotation_error(rotation_error);
+        }
     }
 
-    // * Move to the next point
-    if (distance_to_next_point > 0.15f)
-    {
-        fix_direction(angle_to_turn, compass_direction, max_speed, lPow, rPow);
-        *lPow = 0.15;
-        *rPow = 0.15;
-        return;
+    vector<string> path_finding(vector<vector<int>> map_numpy, vector<int> not_visited_x, vector<int> not_visited_y, int current_x, int current_y) {
+        try {
+            vector<pair<int, int>> not_visited_positions;
+            for (size_t i = 0; i < not_visited_x.size(); ++i) {
+                not_visited_positions.emplace_back(not_visited_y[i], not_visited_x[i]);
+            }
+
+            vector<int> linear_movements;
+            vector<vector<string>> overall_movements;
+
+            for (auto& target : not_visited_positions) {
+                vector<vector<int>> map_for_path(map_numpy.size(), vector<int>(map_numpy[0].size(), 0));
+                map_for_path[current_y][current_x] = 1;
+
+                while (map_for_path[target.first][target.second] == 0) {
+                    int max_value = *max_element(map_for_path.begin(), map_for_path.end(), [](const vector<int>& a, const vector<int>& b) {
+                        return *max_element(a.begin(), a.end()) < *max_element(b.begin(), b.end());
+                    });
+
+                    vector<pair<int, int>> possible_positions;
+                    for (size_t j = 0; j < map_for_path.size(); ++j) {
+                        for (size_t i = 0; i < map_for_path[j].size(); ++i) {
+                            if (map_for_path[j][i] == max_value) {
+                                possible_positions.emplace_back(j, i);
+                            }
+                        }
+                    }
+
+                    for (auto& pos : possible_positions) {
+                        if (map_numpy[pos.first][pos.second] == 20 || map_numpy[pos.first][pos.second] == 80 || map_numpy[pos.first][pos.second] == 90) {
+                            for (auto& dir : vector<pair<int, int>>{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                                if (map_for_path[pos.first + dir.first][pos.second + dir.second] == 0 && (map_numpy[pos.first + dir.first][pos.second + dir.second] == 20 || map_numpy[pos.first + dir.first][pos.second + dir.second] == 60 || map_numpy[pos.first + dir.first][pos.second + dir.second] == 80)) {
+                                    map_for_path[pos.first + dir.first][pos.second + dir.second] = max_value + 1;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                vector<string> movements;
+                int max_value = *max_element(map_for_path.begin(), map_for_path.end(), [](const vector<int>& a, const vector<int>& b) {
+                    return *max_element(a.begin(), a.end()) < *max_element(b.begin(), b.end());
+                });
+
+                current_y = target.first;
+                current_x = target.second;
+
+                for (int i = 0; i < max_value - 1; ++i) {
+                    vector<vector<int>> sides_array = {
+                        {0, map_for_path[current_y - 1][current_x], 0},
+                        {map_for_path[current_y][current_x - 1], map_for_path[current_y][current_x], map_for_path[current_y][current_x + 1]},
+                        {0, map_for_path[current_y + 1][current_x], 0}
+                    };
+
+                    auto it = find_if(sides_array.begin(), sides_array.end(), [&](const vector<int>& row) {
+                        return find(row.begin(), row.end(), max_value - 1) != row.end();
+                    });
+
+                    if (it == sides_array.end()) {
+                        break;
+                    }
+
+                    int ji = distance(sides_array.begin(), it);
+                    int ii = distance(it->begin(), find(it->begin(), it->end(), max_value - 1));
+
+                    if (ji == 0 && ii == 1) {
+                        movements.push_back("DOWN");
+                        current_y -= 1;
+                    } else if (ji == 1 && ii == 0) {
+                        movements.push_back("RIGHT");
+                        current_x -= 1;
+                    } else if (ji == 1 && ii == 2) {
+                        movements.push_back("LEFT");
+                        current_x += 1;
+                    } else if (ji == 2 && ii == 1) {
+                        movements.push_back("UP");
+                        current_y += 1;
+                    }
+
+                    max_value -= 1;
+                }
+
+                movements = vector<string>(movements.begin() + 1, movements.end());
+                reverse(movements.begin(), movements.end());
+                overall_movements.push_back(movements);
+
+                int num_rotations = count_if(movements.begin() + 1, movements.begin(), movements.end(), [](const string& move) {
+                    return move == "LEFT" || move == "RIGHT";
+                });
+
+                linear_movements.push_back(movements.size() + num_rotations);
+            }
+
+            auto min_it = min_element(linear_movements.begin(), linear_movements.end());
+            int min_index = distance(linear_movements.begin(), min_it);
+
+            return overall_movements[min_index];
+        } catch (const exception& e) {
+            cerr << "Error in path_finding: " << e.what() << endl;
+            return {};
+        }
     }
+
+private:
+    vector<int> get_current_position_vector(int start, int end, int step) {
+        vector<int> vec;
+        for (int i = start; i <= end; i += step) {
+            vec.push_back(i);
+        }
+        return vec;
+    }
+
+    int next_cell_to_explore(const vector<int>& vec, double value) {
+        auto it = lower_bound(vec.begin(), vec.end(), value);
+        if (it == vec.end()) {
+            return vec.size() - 1;
+        }
+        return distance(vec.begin(), it);
+    }
+
+    struct Measures {
+        double x, y, compass;
+        bool gpsReady, gpsDirReady, endLed, start, stop, visitingLed, returningLed;
+        int ground;
+        vector<double> irSensor;
+    } measures;
+
+    vector<vector<int>> MAP;
+    vector<int> MAP_x_current, MAP_y_current;
+    double GPS_x_initial, GPS_y_initial, GPS_x_start, GPS_y_start;
+    string robName;
+    int status;
+    double lap_time;
+    vector<vector<char>> labMap;
+};
+
+int main() {
+    // Example usage
+    vector<double> angles = {0.0, 90.0, -90.0};
+    MyRob robot("MyRobot", 1, angles, "localhost");
+
+    vector<vector<char>> labMap = {
+        {'#', '#', '#', '#', '#', '#', '#'},
+        {'#', ' ', ' ', ' ', ' ', ' ', '#'},
+        {'#', ' ', '#', '#', '#', ' ', '#'},
+        {'#', ' ', '#', ' ', '#', ' ', '#'},
+        {'#', ' ', '#', ' ', '#', ' ', '#'},
+        {'#', ' ', ' ', ' ', ' ', ' ', '#'},
+        {'#', '#', '#', '#', '#', '#', '#'}
+    };
+
+    robot.setMap(labMap);
+    robot.printMap();
+    robot.run();
+
+    return 0;
 }
