@@ -47,6 +47,6 @@ public:
 
 };
 
-void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow, MegaRob &rob);
+void DeterminateAction(float *lPow, float *rPow, MegaRob &rob);
 
 #endif

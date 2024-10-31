@@ -257,7 +257,7 @@ void MegaRob::save_map()
         fprintf(file, "\n");
     }
     //print_map();
-
+    //printf("Saved\n");
     fclose(file);
 }
 
@@ -567,7 +567,7 @@ std::vector<std::pair<int,int>> MegaRob::path_finding(std::string map[50][50],st
 
 
 
-void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow, MegaRob &mouse)
+void DeterminateAction(float *lPow, float *rPow, MegaRob &mouse)
 {
     ReadSensors();
 
@@ -604,7 +604,7 @@ void DeterminateAction(int *beaconToFollow, float *lPow, float *rPow, MegaRob &m
         }
     }
 
-    //std::cout << "Entrou na função" << std::endl;
+    std::cout << "Entrou na função" << std::endl;
     Gps_x = x - mouse.GPS_x_init;
     Gps_y = y - mouse.GPS_y_init;
 
