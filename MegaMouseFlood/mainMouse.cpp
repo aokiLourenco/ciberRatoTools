@@ -12,6 +12,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
+#include <vector>
+
 
 #include "RobSock.h"
 
@@ -19,6 +22,8 @@
 
 #define true 1
 #define false 0
+
+
 
 int main(int argc, char *argv[])
 {
@@ -92,6 +97,9 @@ int main(int argc, char *argv[])
 
     printf( "%d beacons available \n", GetNumberOfBeacons());
 
+
+    MegaRob *rob = new MegaRob();
+
     while(1)
     {
         /* Reading next values from Sensors */
@@ -105,8 +113,8 @@ int main(int argc, char *argv[])
         }
 
         /* Calculate */
-
-        DeterminateAction(&goal,&lPow,&rPow);
+        //std::cout << "Rob" << rob.map[0][0]  << std::endl;
+        DeterminateAction(&goal,&lPow,&rPow, *rob);
 
         /* Drive*/
 
