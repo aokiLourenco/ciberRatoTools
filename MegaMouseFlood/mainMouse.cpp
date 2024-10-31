@@ -100,92 +100,92 @@ int main(int argc, char *argv[])
 
     MegaRob *rob = new MegaRob();
 
-    while(1)
-    {
-        /* Reading next values from Sensors */
-        ReadSensors();
-
-        beaconReady = IsBeaconReady(goal);
-        //printf("Beacon ready: %d\n", beaconReady);
-        if(beaconReady) {
-            printf("Following beacon num %d at %d \n", goal, beacon.beaconDir);
-            beacon =  GetBeaconSensor(goal);
-        }
-
-        /* Calculate */
-        //std::cout << "Rob" << rob.map[0][0]  << std::endl;
-        DeterminateAction(&lPow,&rPow, *rob);
-
-        /* Drive*/
-
-        DriveMotors(lPow,rPow);
-
-        if (GetGroundSensor() == goal)
-        {
-            printf("%s visited target id %d at %d\n", rob_name,GetGroundSensor(), GetTime());
-            goal++;
-        }
-
-    }
-
-    // while (1)
+    // while(1)
     // {
     //     /* Reading next values from Sensors */
-    //     printf("Reading Sensors\n");
     //     ReadSensors();
 
-
-    //     if (GetFinished()) /* Simulator has received Finish() or Robot Removed */
-    //     {
-    //         printf("%s Exiting\n", rob_name);
-    //         exit(0);
-    //     }
-    //     if (state == STOP && GetStartButton())
-    //         state = stoppedState; /* Restart     */
-    //     if (state != STOP && GetStopButton())
-    //     {
-    //         stoppedState = state;
-    //         state = STOP; /* Interrupt */
+    //     beaconReady = IsBeaconReady(goal);
+    //     //printf("Beacon ready: %d\n", beaconReady);
+    //     if(beaconReady) {
+    //         printf("Following beacon num %d at %d \n", goal, beacon.beaconDir);
+    //         beacon =  GetBeaconSensor(goal);
     //     }
 
-    //     switch (state)
+    //     /* Calculate */
+    //     //std::cout << "Rob" << rob.map[0][0]  << std::endl;
+    //     DeterminateAction(&lPow,&rPow, *rob);
+
+    //     /* Drive*/
+
+    //     DriveMotors(lPow,rPow);
+
+    //     if (GetGroundSensor() == goal)
     //     {
-    //     case RUN: /* Go */
-    //     printf("Running\n");
-    //         if (GetVisitingLed())
-    //             state = WAIT;
-    //         if (GetGroundSensor() == 0)
-    //         { /* Visit Target */
-    //             SetVisitingLed(true);
-    //             //printf("%s visited target at %d\n", rob_name, GetTime());
-    //         }
-
-    //             DeterminateAction(&lPow, &rPow, *rob);
-    //             DriveMotors(lPow, rPow);
-            
-    //         break;
-    //     case WAIT: /* Wait for others to visit target */
-    //     printf("Waiting\n");
-    //         SetReturningLed(true);
-    //         if (GetVisitingLed())
-    //             SetVisitingLed(false);
-    //         if (GetReturningLed())
-    //             state = RETURN;
-    //         DriveMotors(0.0, 0.0);
-    //         break;
-    //     case RETURN: /* Return to home area */
-    //         if (GetVisitingLed())
-    //             SetVisitingLed(false);
-    //         SetReturningLed(false);
-    //         printf("Returning\n");
-    //         // Wander
-
-    //         DeterminateAction(&lPow, &rPow, *rob);
-    //         DriveMotors(lPow, rPow);
-
-    //         break;
+    //         printf("%s visited target id %d at %d\n", rob_name,GetGroundSensor(), GetTime());
+    //         goal++;
     //     }
+
     // }
+
+    while (1)
+    {
+        /* Reading next values from Sensors */
+        //printf("Reading Sensors\n");
+        ReadSensors();
+
+
+        if (GetFinished()) /* Simulator has received Finish() or Robot Removed */
+        {
+            printf("%s Exiting\n", rob_name);
+            exit(0);
+        }
+        if (state == STOP && GetStartButton())
+            state = stoppedState; /* Restart     */
+        if (state != STOP && GetStopButton())
+        {
+            stoppedState = state;
+            state = STOP; /* Interrupt */
+        }
+
+        switch (state)
+        {
+        case RUN: /* Go */
+        printf("Running\n");
+            if (GetVisitingLed())
+                state = WAIT;
+            if (GetGroundSensor() == 0)
+            { /* Visit Target */
+                SetVisitingLed(true);
+                //printf("%s visited target at %d\n", rob_name, GetTime());
+            }
+
+                DeterminateAction(&lPow, &rPow, *rob);
+                DriveMotors(lPow, rPow);
+            
+            break;
+        case WAIT: /* Wait for others to visit target */
+        printf("Waiting\n");
+            SetReturningLed(true);
+            if (GetVisitingLed())
+                SetVisitingLed(false);
+            if (GetReturningLed())
+                state = RETURN;
+            DriveMotors(0.0, 0.0);
+            break;
+        case RETURN: /* Return to home area */
+            if (GetVisitingLed())
+                SetVisitingLed(false);
+            SetReturningLed(false);
+            printf("Returning\n");
+            // Wander
+
+            DeterminateAction(&lPow, &rPow, *rob);
+            DriveMotors(lPow, rPow);
+
+            break;
+        }
+    }
     return 1;
 
 

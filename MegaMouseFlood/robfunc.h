@@ -20,7 +20,7 @@ private:
 public:
     /* data */
     // MAP DATA
-    std::string map[50][50];
+    std::string map[27][55]; //y,x
     int map_x_init, map_y_init;
     int map_x_current, map_y_current;
 
@@ -31,20 +31,20 @@ public:
 
     MegaRob();
     ~MegaRob();
-    void set_map(std::string map_value[50][50]);
+    void set_map(std::string map_value[27][55]);
     void print_map();
     int next_cell_to_explore(const std::vector<int> &list, int N);
     int get_current_position(float GPS, int start, int end, int step);
     std::vector<bool> DefineQuadrant(int compass_direction);
     std::vector<std::string> Mapper(float left, float right, float center, std::vector<bool> quadrants, int map_y, int map_x);
-    std::vector<std::pair<int, int>> find_positions(const std::string map[50][50], const std::string &value);
+    std::vector<std::pair<int, int>> find_positions(const std::string map[27][55], const std::string &value);
     void save_map();
 
     void Move(std::vector<bool> Z, float *lPow, float *rPow);
     void rotate_left(float *lPow, float *rPow, int compass);
     void rotate_right(float *lPow, float *rPow, int compass);
-    std::vector<std::pair<int,int>> path_finding(std::string map[50][50],std::vector<int> list_not_visited_x, std::vector<int> list_not_visited_y);
-
+    std::vector<std::pair<int,int>> path_finding(std::string map[27][55],std::vector<int> list_not_visited_x, std::vector<int> list_not_visited_y);
+    void pather(const std::vector<std::string> &next_movements, float *lPow, float *rPow, int compass);
 };
 
 void DeterminateAction(float *lPow, float *rPow, MegaRob &rob);
