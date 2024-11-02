@@ -479,7 +479,7 @@ void MegaRob::rotate_left(float *lPow, float *rPow, int compass)
 
     while (abs(rotation_error) >= 1)
     {
-        // printf("Rotating left\n");
+        //printf("Rotating error %d\n", rotation_error);
         ReadSensors();
         int compass_direction;
         if (IsCompassReady())
@@ -489,8 +489,11 @@ void MegaRob::rotate_left(float *lPow, float *rPow, int compass)
 
         double current_compass = compass_direction;
         rotation_error = calculate_rotation_error(current_compass, target_compass);
+        //printf("Rotating error After %f\n", rotation_error);
         drive_with_rotation_error(rotation_error);
     }
+    //printf("Rotated left\n");
+
 }
 
 void MegaRob::rotate_right(float *lPow, float *rPow, int compass)
@@ -550,9 +553,10 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
         not_visited_positions.push_back(std::make_pair(list_not_visited_y[i], list_not_visited_x[i]));
     }
 
+    std::cout << "Not visited position: ";
     for (const auto &pos : not_visited_positions)
     {
-        std::cout << "Not visited position: (" << pos.first << ", " << pos.second << ")";
+        std::cout << "(" << pos.first << ", " << pos.second << ")";
     }
     std::cout << std::endl;
 
@@ -589,7 +593,7 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
             }
             int max_value = *std::max_element(max_values.begin(), max_values.end());
 
-            printf("Max_value %d\n", max_value);
+            // printf("Max_value %d\n", max_value);
 
             std::vector<std::pair<int, int>> possible_positons;
 
@@ -604,9 +608,10 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
                 }
             }
 
+            std::cout << "Possible positions: "; 
             for (const auto &pos : possible_positons)
             {
-                std::cout << "Possible position: (" << pos.first << ", " << pos.second << ")";
+                std::cout << "(" << pos.first << ", " << pos.second << ")";
             }
             std::cout << std::endl;
 
@@ -636,30 +641,33 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
         }
         int max_value = *std::max_element(max_values.begin(), max_values.end());
 
-        printf("Max_value %d\n", max_value);
+        // printf("Max_value %d\n", max_value);
         int current_x = target_x;
         int current_y = target_y;
 
-        for (int i = 0; i < max_value - 1; i++)
+        int max_value_copy = max_value;
+
+        for (int i = 0; i < max_value_copy; i++)
         {
+            printf("Iteration %d with max %d\n", i,max_value);
             std::vector<std::vector<int>> sides_array = {
                 {0, map_for_path[current_y - 1][current_x], 0},
                 {map_for_path[current_y][current_x - 1], map_for_path[current_y][current_x], map_for_path[current_y][current_x + 1]},
                 {0, map_for_path[current_y + 1][current_x], 0}};
 
-            std::pair<int, int> ji = {-1, -1};
+            std::vector<int> j_i;
+            std::vector<int> i_i;   
             for (int j = 0; j < sides_array.size(); j++)
             {
                 for (int k = 0; k < sides_array[j].size(); k++)
                 {
                     if (sides_array[j][k] == max_value - 1)
                     {
-                        ji = {j, k};
-                        break;
+                        printf("AAAA : %d %d\n", j, k);
+                        j_i.push_back(j);
+                        i_i.push_back(k);
                     }
                 }
-                if (ji.first != -1)
-                    break;
             }
 
             std::cout << "Sides array:\n";
@@ -671,12 +679,28 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
                 }
                 std::cout << "\n";
             }
-            std::cout << "Positions in sides array (j_i, i_i): " << ji.first << ", " << ji.second << "\n";
+            printf("i_i size: %d\n", i_i.size());
 
-            if (ji.first == -1 || ji.second == -1)
+            std::cout << "Positions in sides array (j_i, i_i): ["; 
+            for(int valor : j_i)
             {
-                break; // No valid moves found, break the loop
+                std::cout << valor << " ";
             }
+            
+            std::cout << "], [";
+            for(int valor : i_i)
+            {
+                std::cout << valor << " ";
+            }
+            std::cout << "]\n";
+
+            if(j_i.size() == 0 || i_i.size() == 0)
+            {
+                printf("BREAK \n");
+                break;
+            }
+
+            std::pair<int, int> ji = std::make_pair(j_i[0], i_i[0]);
 
             if (ji == std::make_pair(0, 1))
             {
@@ -702,7 +726,7 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
             max_value -= 1;
         }
 
-        std::cout << "Movements:\n";
+        // std::cout << "Movements:\n";
         for (const auto &move : movements)
         {
             std::cout << move << "\n";
@@ -717,7 +741,7 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
 
         overall_movements.push_back(filtered_movements);
 
-        std::cout << "The agent must follow the next movements: ";
+        // std::cout << "The agent must follow the next movements: ";
         for (const auto &move : filtered_movements)
         {
             std::cout << move << " ";
@@ -738,22 +762,22 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
         linear_movements.push_back(real_num_movements);
 
     }
-    std::cout << "Linear movements: ";
-    for (const auto &movement : linear_movements)
-    {
-        std::cout << movement << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "Linear movements: ";
+    // for (const auto &movement : linear_movements)
+    // {
+    //     std::cout << movement << " ";
+    // }
+    // std::cout << std::endl;
 
-    std::cout << "Overall movements: ";
-    for (const auto &movements : overall_movements)
-    {
-        for (const auto &move : movements)
-        {
-            std::cout << move << " ";
-        }
-        std::cout << std::endl;
-    }
+    // std::cout << "Overall movements: ";
+    // for (const auto &movements : overall_movements)
+    // {
+    //     for (const auto &move : movements)
+    //     {
+    //         std::cout << move << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     int min_index = std::distance(linear_movements.begin(), std::min_element(linear_movements.begin(), linear_movements.end()));
     std::cout << "The closest path is = ";
@@ -782,8 +806,16 @@ void MegaRob::pather(const std::vector<std::string> &next_movements, float *lPow
         while (!quadrant[direction_idx])
         {
             // Rotate
+            //printf("Rotating\n");
+            ReadSensors();
+            compass = GetCompassSensor();
             rotate_left(lPow, rPow, compass);
             quadrant = DefineQuadrant(compass);
+            //printf("Quadrant: ");
+            for (const auto &value : quadrant)
+            {
+                std::cout << value << " ";
+            }
         }
         return quadrant;
     };
@@ -836,14 +868,38 @@ void MegaRob::pather(const std::vector<std::string> &next_movements, float *lPow
         if (next_movements[i] == next_movements[i - 1])
         {
             quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
+            
         }
         else
         {
             auto rotation_function = get_rotation_function(next_movements[i - 1], next_movements[i]);
+            std::cout << "Rotating : "<< rotation_function << std::endl;
+            if (rotation_function == &MegaRob::rotate_left)
+            {
+                ReadSensors();
+                compass = GetCompassSensor();
+                std::cout << "Rotating left" << std::endl;
+                rotate_left(lPow, rPow, compass);
+            }
+            else if (rotation_function == &MegaRob::rotate_right)
+            {
+                ReadSensors();
+                compass = GetCompassSensor();
+                std::cout << "Rotating right" << std::endl;
+                rotate_right(lPow, rPow, compass);
+            }
+
             if (rotation_function)
             {
+                std::cout << "Entrou" << std::endl;
                 quadrant = DefineQuadrant(compass);
                 quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
+                printf("Rotating and new quadrant is: ");
+                for (const auto &value : quadrant)
+                {
+                    std::cout << value << " ";
+                }
+                std::cout << std::endl;
             }
         }
     }
