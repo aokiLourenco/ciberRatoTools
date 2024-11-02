@@ -36,9 +36,7 @@ class MyRob(CRobLinkAngs):
         GPS_y_initial = self.measures.y
         GPS_x_start = self.measures.x
         GPS_y_start = self.measures.y
-        
-        global list_beacons_coords
-        list_beacons_coords = []
+
 
     # In this map the center of cell (i,j), (i in 0..6, j in 0..13) is mapped to labMap[i*2][j*2].
     # to know if there is a wall on top of cell(i,j) (i in 0..5), check if the value of labMap[i*2+1][j*2] is space or not
@@ -131,6 +129,8 @@ class MyRob(CRobLinkAngs):
                 if MAP[map_coords[2]][map_coords[3]] != 80:
                     MAP[map_coords[2]][map_coords[3]] = explore_value
 
+        print("Map x {}, Map y {}".format(x, y))
+        print("Map Ahead 2 {}".format(MAP[y][x + 2]))
         if flags[0]:
             update_map(center_sensor, threshold, (y, x + 1, y, x + 2), 30, 20, 60)
             update_map(left_sensor, threshold, (y - 1, x, y - 2, x), 40, 20, 60)
@@ -171,10 +171,10 @@ class MyRob(CRobLinkAngs):
 
     def Move(self, Z):
         self.readSensors()
-    
+        
         GPS_x = self.measures.x - GPS_x_initial
         GPS_y = self.measures.y - GPS_y_initial
-    
+
         # Define the linear setpoint (exact coords for the next cell given by pair numbers)
         GPS_x_current_vet = [i for i in range(-26, 28, 2)]
         GPS_x_current = GPS_x_current_vet[next_cell_to_explore(GPS_x_current_vet, GPS_x)]
@@ -189,48 +189,35 @@ class MyRob(CRobLinkAngs):
         kp = 0.01
         kd = 0.1
         threshold = 0.225
-    
-        while (Z[0] and error_x > threshold) or (Z[1] and error_y > threshold) or (Z[2] and error_x > threshold) or (Z[3] and error_y > threshold):
+
+        def calculate_errors_and_drive(Z, error_x, error_y, error_x_last, error_y_last):
             self.readSensors()
             GPS_x = self.measures.x - GPS_x_initial
             GPS_y = self.measures.y - GPS_y_initial
-    
+
             if Z[0]:
                 error_x = (GPS_x_current + 2) - GPS_x
                 error_y = GPS_y_current - GPS_y
-                rot = error_y * kp + (error_y - error_y_last) / 2 * kd
-                right_rotation = lin + rot
-                left_rotation = lin - rot
-                self.driveMotors(left_rotation, right_rotation)
-                error_y_last = error_y
-    
-            if Z[1]:
+            elif Z[1]:
                 error_x = GPS_x_current - GPS_x
                 error_y = (GPS_y_current + 2) - GPS_y
-                rot = error_x * kp + (error_x - error_x_last) / 2 * kd
-                right_rotation = lin - rot
-                left_rotation = lin + rot
-                self.driveMotors(left_rotation, right_rotation)
-                error_x_last = error_x
-    
-            if Z[2]:
+            elif Z[2]:
                 error_x = GPS_x - (GPS_x_current - 2)
                 error_y = GPS_y - GPS_y_current
-                rot = error_y * kp + (error_y - error_y_last) / 2 * kd
-                right_rotation = lin + rot
-                left_rotation = lin - rot
-                self.driveMotors(left_rotation, right_rotation)
-                error_y_last = error_y
-    
-            if Z[3]:
+            elif Z[3]:
                 error_x = GPS_x - GPS_x_current
                 error_y = GPS_y - (GPS_y_current - 2)
-                rot = error_x * kp + (error_x - error_x_last) / 2 * kd
-                right_rotation = lin - rot
-                left_rotation = lin + rot
-                self.driveMotors(left_rotation, right_rotation)
-                error_x_last = error_x
-                
+
+            rot = (error_y if Z[0] or Z[2] else error_x) * kp + ((error_y if Z[0] or Z[2] else error_x) - (error_y_last if Z[0] or Z[2] else error_x_last)) / 2 * kd
+            right_rotation = lin + rot if Z[0] or Z[2] else lin - rot
+            left_rotation = lin - rot if Z[0] or Z[2] else lin + rot
+            self.driveMotors(left_rotation, right_rotation)
+
+            return error_x, error_y, error_x_last, error_y_last
+
+        while (Z[0] and error_x > threshold) or (Z[1] and error_y > threshold) or (Z[2] and error_x > threshold) or (Z[3] and error_y > threshold):
+            error_x, error_y, error_x_last, error_y_last = calculate_errors_and_drive(Z, error_x, error_y, error_x_last, error_y_last)
+            print("Error x: {}, Error y: {}".format(error_x, error_y))       
     def Rotate_90_Left(self):
         def get_true_compass(compass):
             compass_vector = [0, 90, -180, -90, 180]
@@ -328,7 +315,7 @@ class MyRob(CRobLinkAngs):
                     print("Positions in sides array (j_i, i_i):", j_i, i_i)
     
                     if len(j_i) == 0 or len(i_i) == 0:
-                        break  #No valid moves found, break the loop
+                        break  # No valid moves found, break the loop
     
                     ji = (j_i[0], i_i[0])
     
@@ -412,7 +399,7 @@ class MyRob(CRobLinkAngs):
                     quadrant = self.DefineQuadrant()
                     quadrant = move_and_update_quadrant(quadrant)
 
-    def save_map(self, MAP, Map_x_initial, Map_y_initial, list_beacons_coords):
+    def save_map(self, MAP, Map_x_initial, Map_y_initial):
         def cell_to_char(cell):
             cell_char_map = {
                 80: 'X',
@@ -422,16 +409,11 @@ class MyRob(CRobLinkAngs):
                 30: '|',
                 40: '-',
                 10: ' ',
-                50: 'I',
-                70: 'O'
+                50: 'I'
             }
             return cell_char_map.get(cell, ' ')
     
         MAP[Map_y_initial][Map_x_initial] = 50
-
-        for x in range(0, len(list_beacons_coords)):
-            y, x, _ = list_beacons_coords[x]
-            MAP[y][x] = 70
     
         # Convert the map to a string representation
         MAP_str = "\n".join("".join(cell_to_char(cell) for cell in row) for row in MAP)
@@ -442,112 +424,20 @@ class MyRob(CRobLinkAngs):
         with open('mymap.txt', 'w') as f:
             f.write(MAP_str)
 
-        import numpy as np
-    
-    def BestPath(self, MAP, MAP_x_initial, MAP_y_initial, list_beacons_coords):
-        print('Calculating best path...')
-    
-        map_numpy = np.array(MAP)
-        movement_total = []
-    
-        initial_position = (MAP_y_initial, MAP_x_initial, 0)
-        list_beacons_coords.insert(0, initial_position)  # Add initial position to the start of the list
-    
-        def find_path_segment(map_numpy, start, end):
-            start_y, start_x, _ = start
-            end_y, end_x, _ = end
-    
-            map_for_path = np.zeros_like(map_numpy)
-            map_for_path[start_y, start_x] = 1
-    
-            while map_for_path[end_y, end_x] == 0:
-                max_value = np.amax(map_for_path)
-                possible_positions = np.argwhere(map_for_path == max_value)
-    
-                for j, i in possible_positions:
-                    if map_numpy[j, i] in [20, 70, 80, 90]:
-                        for dj, di in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                            if map_for_path[j + dj, i + di] == 0 and map_numpy[j + dj, i + di] in [20, 70, 60, 80]:
-                                map_for_path[j + dj, i + di] = max_value + 1
-    
-            movements = []
-            max_value = np.amax(map_for_path)
-            current_y, current_x = end_y, end_x
-    
-            for _ in range(max_value - 1):
-                sides_array = np.array([[0, map_for_path[current_y - 1, current_x], 0],
-                                        [map_for_path[current_y, current_x - 1], map_for_path[current_y, current_x], map_for_path[current_y, current_x + 1]],
-                                        [0, map_for_path[current_y + 1, current_x], 0]])
-    
-                j_i, i_i = np.where(sides_array == max_value - 1)
-                ji = (j_i[0], i_i[0])
-    
-                if ji == (0, 1):
-                    movements.append('DOWN')
-                    current_y -= 1
-                elif ji == (1, 0):
-                    movements.append('RIGHT')
-                    current_x -= 1
-                elif ji == (1, 2):
-                    movements.append('LEFT')
-                    current_x += 1
-                elif ji == (2, 1):
-                    movements.append('UP')
-                    current_y += 1
-    
-                max_value -= 1
-    
-            return movements[1::2][::-1]
-    
-        complete_movements = []
-        current_position = initial_position
-    
-        for checkpoint in list_beacons_coords[1:]:
-            segment_movements = find_path_segment(map_numpy, current_position, checkpoint)
-            complete_movements.extend(segment_movements)
-            current_position = checkpoint
-    
-        # Finally, return to the initial position
-        segment_movements = find_path_segment(map_numpy, current_position, initial_position)
-        complete_movements.extend(segment_movements)
-    
-        return complete_movements
-
-    def WriteCoords(self, movement_total):
-
-        x = 0
-        y = 0
-        text = ''
-
-        for i in range(0, len(movement_total)):
-
-            text = (text + str(x) + ' ' + str(y) + '\n')
-
-            if movement_total[i] == 'RIGHT':
-                x += 2
-            elif movement_total[i] == 'LEFT':
-                x -= 2
-            elif movement_total[i] == 'UP':
-                y += 2
-            elif movement_total[i] == 'DOWN':
-                y -= 2
-
-        text = (text + '0 0' + '\n')
-        with open('BestPath.txt', 'w') as f:
-            f.write(text)
-
-
     def wander(self):
+        
+        # 80 : Not visited
+        # 90 : Atual
+        # 20 : Empty
+        
         # Start VARIABLES
         global GPS_x_initial, GPS_y_initial, GPS_x_start, GPS_y_start
         global GPS_x_current, GPS_y_current, MAP
         global MAP_x_current, MAP_y_current, MAP_x_initial, MAP_y_initial
     
-        global list_beacons_coords
-
         self.readSensors()
     
-        sen_ground = self.measures.ground
+        compass = self.measures.compass
     
         GPS_x = self.measures.x - GPS_x_initial
         GPS_y = self.measures.y - GPS_y_initial
@@ -561,11 +451,14 @@ class MyRob(CRobLinkAngs):
         MAP_x_current = MAP_x_initial + GPS_x_current
         MAP_y_current = MAP_y_initial - GPS_y_current
     
+        print("GPS_x_current:", GPS_x_current)
+        print("GPS_y_current:", GPS_y_current)
+    
         MAP_x_current = MAP_x_current if MAP_x_current else MAP_x_initial
         MAP_y_current = MAP_y_current if MAP_y_current else MAP_y_initial
     
         # Define zone
-        Quadrant =  Quadrant()
+        Quadrant = self.DefineQuadrant()
     
         # Update map
         MAP[MAP_y_initial][MAP_x_initial] = 80
@@ -581,14 +474,8 @@ class MyRob(CRobLinkAngs):
         print("list_not_visited_x:", list_not_visited_x)
         print("current_position_y:", current_position_y)
         print("current_position_x:", current_position_x)
-    
+
         MAP[MAP_y_current][MAP_x_current] = 80
-
-        if sen_ground >= 0:
-            list_beacons_coords.append((MAP_y_current, MAP_x_current, sen_ground))
-
-        list_beacons_coords = [t for t in (set(tuple(i) for i in list_beacons_coords))]
-        list_beacons_coords.sort(key=lambda x:x[2])
     
         if self.should_Rotate_90_Right(R2, R, F2):
             self.Rotate_90_Right()
@@ -599,13 +486,7 @@ class MyRob(CRobLinkAngs):
         else:
             if not list_not_visited_y.size or not list_not_visited_x.size:
                 print("No more cells to explore. Exiting.")
-
-                best_path = self.BestPath(MAP, MAP_x_initial, MAP_y_initial, list_beacons_coords)
-                print("debug")
-                print(best_path)
-                self.WriteCoords(best_path)
-
-                self.save_map(MAP, MAP_x_initial, MAP_y_initial, list_beacons_coords)
+                self.save_map(MAP, MAP_x_initial, MAP_y_initial)
                 exit()
     
             # Find the closest unexplored cell
@@ -616,7 +497,7 @@ class MyRob(CRobLinkAngs):
         self.driveMotors(0, 0)
     
         # Write MAP on txt
-        self.save_map(MAP, MAP_x_initial, MAP_y_initial, list_beacons_coords)
+        self.save_map(MAP, MAP_x_initial, MAP_y_initial)
 
     def get_current_position(self, GPS, start, end, step):
         GPS_current_vet = [i for i in range(start, end, step)]

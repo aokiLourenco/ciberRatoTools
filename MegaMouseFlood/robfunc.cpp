@@ -124,29 +124,20 @@ std::vector<bool> MegaRob::DefineQuadrant(int compass_direction)
     {
         compass_direction = GetCompassSensor();
     }
+    
+    std::vector<bool> Quadrant(4, false);
 
-    if (std::abs(compass_direction) <= 45)
-    {
-        // printf("Se entra aqui... \n");
-        return {true, false, false, false};
+    if (std::abs(compass_direction) <= 45) {
+        Quadrant[0] = true;
+    } else if (compass_direction > 45 && compass_direction <= 135) {
+        Quadrant[1] = true;
+    } else if (std::abs(compass_direction) >= 135) {
+        Quadrant[2] = true;
+    } else if (compass_direction <= -45 && compass_direction >= -135) {
+        Quadrant[3] = true;
     }
-    else if (compass_direction > 45 && compass_direction <= 135)
-    {
-        return {false, true, false, false};
-    }
-    else if (std::abs(compass_direction) >= 135)
-    {
-        return {false, false, true, false};
-    }
-    else if (compass_direction <= -45 && compass_direction >= -135)
-    {
-        // printf("WHY NOT HERE???? \n");
-        return {false, false, false, true};
-    }
-    else
-    {
-        return {false, false, false, false};
-    }
+
+    return Quadrant;
 }
 
 std::vector<std::string> MegaRob::Mapper(float left, float right, float center, std::vector<bool> quadrants, int map_y, int map_x)
@@ -163,14 +154,14 @@ std::vector<std::string> MegaRob::Mapper(float left, float right, float center, 
 
     float threshold = 1.5f;
 
-    std::cout<< "For cell pos (" << GPS_y_current <<","<< GPS_x_current <<"), sensors are: L - " << left << ", R - " << right << ", C - " <<center ;
+    // std::cout<< "For cell pos (" << GPS_y_current <<","<< GPS_x_current <<"), sensors are: L - " << left << ", R - " << right << ", C - " <<center ;
 
     std::string ahead1, left1, right1;
     std::string ahead2, left2, right2;
 
     auto update_map = [&](float sensor_value, float threshold, std::vector<int> map_coords, std::string wall_value, std::string empty_value, std::string explore_value)
     {
-        if (sensor_value > threshold)
+        if (sensor_value >= threshold)
         {
             map[map_coords[0]][map_coords[1]] = wall_value;
         }
@@ -244,9 +235,9 @@ std::vector<std::string> MegaRob::Mapper(float left, float right, float center, 
         left2 = map[map_y][map_x + 2];
     }
 
-    std::cout << "Ahead1: " << ahead1 << ", Ahead2: " << ahead2 << std::endl;
-    std::cout << "Right1: " << right1 << ", Right2: " << right2 << std::endl;
-    std::cout << "Left1: " << left1 << ", Left2: " << left2 << std::endl;
+    // std::cout << "Ahead1: " << ahead1 << ", Ahead2: " << ahead2 << std::endl;
+    // std::cout << "Right1: " << right1 << ", Right2: " << right2 << std::endl;
+    // std::cout << "Left1: " << left1 << ", Left2: " << left2 << std::endl;
 
     return {ahead1, ahead2, right1, right2, left1, left2}; // Use this if you're inside a function
 }
@@ -328,16 +319,12 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
     double GPS_x = GetX() - GPS_x_init;
     double GPS_y = GetY() - GPS_y_init;
 
-    // printf("GPS_x: %f\n", GPS_x);
-    // printf("GPS_y: %f\n", GPS_y);
     std::vector<int> GPS_x_current_vet;
     for (int i = -26; i < 28; i += 2)
     {
         GPS_x_current_vet.push_back(i);
     }
     double GPS_x_current_x = (double)GPS_x_current_vet[next_cell_to_explore(GPS_x_current_vet, (int)std::round(GPS_x))];
-
-    //printf("GPS_x_current_x: %f\n", GPS_x_current_x);
 
     std::vector<int> GPS_y_current_vet;
     for (int i = -12; i < 14; i += 2)
@@ -355,13 +342,50 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
     const double kd = 0.1;
     const double threshold = 0.225;
 
-    // printf("GPS_x_current_x: %f\n", GPS_x_current_x);
-    // printf("GPS_y_current_y: %f\n", GPS_y_current_y);
+    auto update_errors = [&](double &error_x, double &error_y, double GPS_x, double GPS_y, double GPS_x_current_x, double GPS_y_current_y, int direction)
+    {
+        switch (direction)
+        {
+        case 0:
+            error_x = (GPS_x_current_x + 2.0) - GPS_x;
+            error_y = GPS_y_current_y - GPS_y;
+            break;
+        case 1:
+            error_x = GPS_x_current_x - GPS_x;
+            error_y = (GPS_y_current_y + 2) - GPS_y;
+            break;
+        case 2:
+            error_x = GPS_x - (GPS_x_current_x - 2);
+            error_y = GPS_y - GPS_y_current_y;
+            break;
+        case 3:
+            error_x = GPS_x - GPS_x_current_x;
+            error_y = GPS_y - (GPS_y_current_y - 2);
+            break;
+        }
+    };
+
+    auto drive_with_errors = [&](double error_x, double error_y, double &error_x_last, double &error_y_last, int direction)
+    {
+        float rot = (direction % 2 == 0 ? error_y : error_x) * kp + ((direction % 2 == 0 ? error_y : error_x) - (direction % 2 == 0 ? error_y_last : error_x_last)) / 2 * kd;
+        float right_rotation = lin + (direction % 2 == 0 ? rot : -rot);
+        float left_rotation = lin - (direction % 2 == 0 ? rot : -rot);
+        *lPow = left_rotation;
+        *rPow = right_rotation;
+        DriveMotors(*lPow, *rPow);
+        if (direction % 2 == 0)
+        {
+            error_y_last = error_y;
+        }
+        else
+        {
+            error_x_last = error_x;
+        }
+    };
 
     while ((Z[0] && error_x > threshold) || (Z[1] && error_y > threshold) || (Z[2] && error_x > threshold) || (Z[3] && error_y > threshold))
     {
         ReadSensors();
-
 
         float x, y;
 
@@ -374,73 +398,15 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
         GPS_x = x - GPS_x_init;
         GPS_y = y - GPS_y_init;
 
-        if (Z[0])
+        for (int i = 0; i < 4; ++i)
         {
-            error_x = (GPS_x_current_x + 2.0) - GPS_x;
-            error_y = GPS_y_current_y - GPS_y;
-            float rot = error_y * kp + (error_y - error_y_last) / 2 * kd;
-            // printf("Rot %f \n",rot);
-            float right_rotation = lin + rot;
-            float left_rotation = lin - rot;
-            *lPow = left_rotation;
-            *rPow = right_rotation;
-            DriveMotors(*lPow, *rPow);
-            // printf("Error 0 x: %f\n", error_x);
-            // printf("Error 0 y: %f\n", error_y);
-            // printf("Mexeu? \n");
-            error_y_last = error_y;
+            if (Z[i])
+            {
+                update_errors(error_x, error_y, GPS_x, GPS_y, GPS_x_current_x, GPS_y_current_y, i);
+                drive_with_errors(error_x, error_y, error_x_last, error_y_last, i);
+            }
         }
-
-        if (Z[1])
-        {
-            error_x = GPS_x_current_x - GPS_x;
-            error_y = (GPS_y_current_y + 2) - GPS_y;
-            float rot = error_x * kp + (error_x - error_x_last) / 2 * kd;
-            float right_rotation = lin - rot;
-            float left_rotation = lin + rot;
-            *lPow = left_rotation;
-            *rPow = right_rotation;
-            DriveMotors(*lPow, *rPow);
-            // printf("Error 1 x: %f\n", error_x);
-            // printf("Error 1 y: %f\n", error_y);
-            error_x_last = error_x;
-        }
-
-        if (Z[2])
-        {
-            error_x = GPS_x - (GPS_x_current_x - 2);
-            error_y = GPS_y - GPS_y_current_y;
-            float rot = error_y * kp + (error_y - error_y_last) / 2 * kd;
-            float right_rotation = lin + rot;
-            float left_rotation = lin - rot;
-            *lPow = left_rotation;
-            *rPow = right_rotation;
-            DriveMotors(*lPow, *rPow);
-
-            // printf("Error 2 x: %f\n", error_x);
-            // printf("Error 2 y: %f\n", error_y);
-            error_y_last = error_y;
-        }
-
-        if (Z[3])
-        {
-            error_x = GPS_x - GPS_x_current_x;
-            error_y = GPS_y - (GPS_y_current_y - 2);
-            float rot = error_x * kp + (error_x - error_x_last) / 2 * kd;
-            float right_rotation = lin - rot;
-            float left_rotation = lin + rot;
-            *lPow = left_rotation;
-            *rPow = right_rotation;
-            DriveMotors(*lPow, *rPow);
-            // printf("Error 3 x: %f\n", error_x);
-            // printf("Error 3 y: %f\n", error_y);
-            error_x_last = error_x;
-        }
-        // printf("Error x: %f\n", error_x);
-        // printf("Error y: %f\n", error_y);
     }
-    std::cout << "Final position x: " << GPS_x << ", y: " << GPS_y << std::endl;
-    std::cout << "Current gps pos x: " << GPS_x_current_x << ", y: " << GPS_y_current_y << std::endl;
 }
 
 // Rotate functions
@@ -553,12 +519,12 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
         not_visited_positions.push_back(std::make_pair(list_not_visited_y[i], list_not_visited_x[i]));
     }
 
-    std::cout << "Not visited position: ";
-    for (const auto &pos : not_visited_positions)
-    {
-        std::cout << "(" << pos.first << ", " << pos.second << ")";
-    }
-    std::cout << std::endl;
+    // std::cout << "Not visited position: ";
+    // for (const auto &pos : not_visited_positions)
+    // {
+    //     std::cout << "(" << pos.first << ", " << pos.second << ")";
+    // }
+    // std::cout << std::endl;
 
     std::vector<int> linear_movements;
     std::vector<std::vector<std::string>> overall_movements;
@@ -608,12 +574,12 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
                 }
             }
 
-            std::cout << "Possible positions: "; 
-            for (const auto &pos : possible_positons)
-            {
-                std::cout << "(" << pos.first << ", " << pos.second << ")";
-            }
-            std::cout << std::endl;
+            // std::cout << "Possible positions: "; 
+            // for (const auto &pos : possible_positons)
+            // {
+            //     std::cout << "(" << pos.first << ", " << pos.second << ")";
+            // }
+            // std::cout << std::endl;
 
             std::vector<std::pair<int, int>> sei_la = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
@@ -649,7 +615,7 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
 
         for (int i = 0; i < max_value_copy; i++)
         {
-            printf("Iteration %d with max %d\n", i,max_value);
+            // printf("Iteration %d with max %d\n", i,max_value);
             std::vector<std::vector<int>> sides_array = {
                 {0, map_for_path[current_y - 1][current_x], 0},
                 {map_for_path[current_y][current_x - 1], map_for_path[current_y][current_x], map_for_path[current_y][current_x + 1]},
@@ -663,36 +629,36 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
                 {
                     if (sides_array[j][k] == max_value - 1)
                     {
-                        printf("AAAA : %d %d\n", j, k);
+                        // printf("AAAA : %d %d\n", j, k);
                         j_i.push_back(j);
                         i_i.push_back(k);
                     }
                 }
             }
 
-            std::cout << "Sides array:\n";
-            for (const auto &row : sides_array)
-            {
-                for (const auto &elem : row)
-                {
-                    std::cout << elem << " ";
-                }
-                std::cout << "\n";
-            }
-            printf("i_i size: %d\n", i_i.size());
+            // std::cout << "Sides array:\n";
+            // for (const auto &row : sides_array)
+            // {
+            //     for (const auto &elem : row)
+            //     {
+            //         std::cout << elem << " ";
+            //     }
+            //     std::cout << "\n";
+            // }
+            // printf("i_i size: %d\n", i_i.size());
 
-            std::cout << "Positions in sides array (j_i, i_i): ["; 
-            for(int valor : j_i)
-            {
-                std::cout << valor << " ";
-            }
+            // std::cout << "Positions in sides array (j_i, i_i): ["; 
+            // for(int valor : j_i)
+            // {
+            //     std::cout << valor << " ";
+            // }
             
-            std::cout << "], [";
-            for(int valor : i_i)
-            {
-                std::cout << valor << " ";
-            }
-            std::cout << "]\n";
+            // std::cout << "], [";
+            // for(int valor : i_i)
+            // {
+            //     std::cout << valor << " ";
+            // }
+            // std::cout << "]\n";
 
             if(j_i.size() == 0 || i_i.size() == 0)
             {
@@ -742,11 +708,11 @@ std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vec
         overall_movements.push_back(filtered_movements);
 
         // std::cout << "The agent must follow the next movements: ";
-        for (const auto &move : filtered_movements)
-        {
-            std::cout << move << " ";
-        }
-        std::cout << std::endl;
+        // for (const auto &move : filtered_movements)
+        // {
+        //     std::cout << move << " ";
+        // }
+        // std::cout << std::endl;
 
         // Equivalent of num_rotations = sum(1 for i in range(1, len(movements)) if movements[i] != movements[i - 1])
         int num_rotations = 0;
@@ -823,8 +789,7 @@ void MegaRob::pather(const std::vector<std::string> &next_movements, float *lPow
     auto move_and_update_quadrant = [&](std::vector<bool> &quadrant, float *lPow, float *rPow)
     {
         Move(quadrant, lPow, rPow);
-        quadrant = DefineQuadrant(compass);
-        return quadrant;
+        return DefineQuadrant(compass);
     };
 
     auto get_rotation_function = [&](const std::string &prev_direction, const std::string &next_direction)
@@ -856,12 +821,12 @@ void MegaRob::pather(const std::vector<std::string> &next_movements, float *lPow
     }
 
     quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
-    std::cout << "Next movements: ";
-    for (const auto &movement : next_movements)
-    {
-        std::cout << movement << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "Next movements: ";
+    // for (const auto &movement : next_movements)
+    // {
+    //     std::cout << movement << " ";
+    // }
+    // std::cout << std::endl;
 
     for (size_t i = 1; i < next_movements.size(); ++i)
     {
@@ -891,7 +856,7 @@ void MegaRob::pather(const std::vector<std::string> &next_movements, float *lPow
 
             if (rotation_function)
             {
-                std::cout << "Entrou" << std::endl;
+                // std::cout << "Entrou" << std::endl;
                 quadrant = DefineQuadrant(compass);
                 quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
                 printf("Rotating and new quadrant is: ");
@@ -950,8 +915,8 @@ void DeterminateAction(float *lPow, float *rPow, MegaRob &mouse)
     Gps_x = x - mouse.GPS_x_init;
     Gps_y = y - mouse.GPS_y_init;
 
-    printf("Gps Innit x: %f\n", mouse.GPS_x_init);
-    printf("Gps Innit y: %f\n", mouse.GPS_y_init);
+    // printf("Gps Innit x: %f\n", mouse.GPS_x_init);
+    // printf("Gps Innit y: %f\n", mouse.GPS_y_init);
     // printf(" AAAA Gps y: %f\n", Gps_y);
     // printf("GPS_INIT \n");
 

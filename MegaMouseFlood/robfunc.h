@@ -45,6 +45,8 @@ public:
     void rotate_right(float *lPow, float *rPow, int compass);
     std::vector<std::string> path_finding(std::string map[27][55],std::vector<int> list_not_visited_x, std::vector<int> list_not_visited_y);
     void pather(const std::vector<std::string> &next_movements, float *lPow, float *rPow, int compass);
+    std::pair<double, double> calculate_center_of_next_cell(double GPS_x, double GPS_y, int direction);
+    void rotate_to_face_coordinate(double target_x, double target_y, float *lPow, float *rPow);    
 };
 
 void DeterminateAction(float *lPow, float *rPow, MegaRob &rob);
