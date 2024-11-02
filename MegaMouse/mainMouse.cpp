@@ -105,11 +105,9 @@ int main(int argc, char *argv[])
         }
 
         /* Calculate */
-
         DeterminateAction(&goal,&lPow,&rPow);
 
         /* Drive*/
-
         DriveMotors(lPow,rPow);
 
         if (GetGroundSensor() == goal)
