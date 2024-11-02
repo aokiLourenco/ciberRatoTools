@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
         switch (state)
         {
         case RUN: /* Go */
-        printf("Running\n");
+        //printf("Running\n");
             if (GetVisitingLed())
                 state = WAIT;
             if (GetGroundSensor() == 0)
@@ -165,7 +165,6 @@ int main(int argc, char *argv[])
             
             break;
         case WAIT: /* Wait for others to visit target */
-        printf("Waiting\n");
             SetReturningLed(true);
             if (GetVisitingLed())
                 SetVisitingLed(false);
@@ -177,7 +176,7 @@ int main(int argc, char *argv[])
             if (GetVisitingLed())
                 SetVisitingLed(false);
             SetReturningLed(false);
-            printf("Returning\n");
+            //printf("Returning\n");
             // Wander
 
             DeterminateAction(&lPow, &rPow, *rob);

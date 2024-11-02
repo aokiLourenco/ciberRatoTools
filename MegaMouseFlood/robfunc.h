@@ -43,7 +43,7 @@ public:
     void Move(std::vector<bool> Z, float *lPow, float *rPow);
     void rotate_left(float *lPow, float *rPow, int compass);
     void rotate_right(float *lPow, float *rPow, int compass);
-    std::vector<std::pair<int,int>> path_finding(std::string map[27][55],std::vector<int> list_not_visited_x, std::vector<int> list_not_visited_y);
+    std::vector<std::string> path_finding(std::string map[27][55],std::vector<int> list_not_visited_x, std::vector<int> list_not_visited_y);
     void pather(const std::vector<std::string> &next_movements, float *lPow, float *rPow, int compass);
 };
 

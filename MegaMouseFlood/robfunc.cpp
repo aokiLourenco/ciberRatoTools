@@ -161,7 +161,9 @@ std::vector<std::string> MegaRob::Mapper(float left, float right, float center, 
     if (IsObstacleReady(CENTER))
         center = GetObstacleSensor(CENTER);
 
-    float threshold = 1.15f;
+    float threshold = 1.5f;
+
+    std::cout<< "For cell pos (" << GPS_y_current <<","<< GPS_x_current <<"), sensors are: L - " << left << ", R - " << right << ", C - " <<center ;
 
     std::string ahead1, left1, right1;
     std::string ahead2, left2, right2;
@@ -182,11 +184,12 @@ std::vector<std::string> MegaRob::Mapper(float left, float right, float center, 
         }
     };
 
-    // printf("Map x: %d, Map y: %d Here %s\n", map_x, map_y, map[map_y][map_x].c_str());
-    // ahead1 = map[map_y][map_x + 1];
-    // printf(" X %d ; Y %d ; Ahead1 %s\n",map_x +1,map_y, ahead1.c_str());
-    // ahead2 = map[map_y][map_x + 2];
-    // printf(" X %d ; Y %d ; Ahead2 %s\n",map_x +2,map_y, ahead2.c_str());
+    std::cout << "Quadrants: ";
+    for (bool quadrant : quadrants)
+    {
+        std::cout << quadrant << " ";
+    }
+    std::cout << std::endl;
 
     if (quadrants[0])
     {
@@ -196,7 +199,6 @@ std::vector<std::string> MegaRob::Mapper(float left, float right, float center, 
 
         ahead1 = map[map_y][map_x + 1];
         ahead2 = map[map_y][map_x + 2];
-        // printf("Ahead2 %s\n", ahead2.c_str());
         right1 = map[map_y + 1][map_x];
         right2 = map[map_y + 2][map_x];
         left1 = map[map_y - 1][map_x];
@@ -242,6 +244,10 @@ std::vector<std::string> MegaRob::Mapper(float left, float right, float center, 
         left2 = map[map_y][map_x + 2];
     }
 
+    std::cout << "Ahead1: " << ahead1 << ", Ahead2: " << ahead2 << std::endl;
+    std::cout << "Right1: " << right1 << ", Right2: " << right2 << std::endl;
+    std::cout << "Left1: " << left1 << ", Left2: " << left2 << std::endl;
+
     return {ahead1, ahead2, right1, right2, left1, left2}; // Use this if you're inside a function
 }
 
@@ -283,7 +289,7 @@ void MegaRob::save_map()
         }
         fprintf(file, "\n");
     }
-    print_map();
+    //print_map();
     // printf("Saved\n");
     fclose(file);
 }
@@ -331,6 +337,8 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
     }
     double GPS_x_current_x = (double)GPS_x_current_vet[next_cell_to_explore(GPS_x_current_vet, (int)std::round(GPS_x))];
 
+    //printf("GPS_x_current_x: %f\n", GPS_x_current_x);
+
     std::vector<int> GPS_y_current_vet;
     for (int i = -12; i < 14; i += 2)
     {
@@ -354,10 +362,6 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
     {
         ReadSensors();
 
-        if (IsCompassReady())
-        {
-            int compass_direction = GetCompassSensor();
-        }
 
         float x, y;
 
@@ -374,10 +378,10 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
         {
             error_x = (GPS_x_current_x + 2.0) - GPS_x;
             error_y = GPS_y_current_y - GPS_y;
-            int rot = error_y * kp + (error_y - error_y_last) / 2 * kd;
+            float rot = error_y * kp + (error_y - error_y_last) / 2 * kd;
             // printf("Rot %f \n",rot);
-            double right_rotation = lin + rot;
-            double left_rotation = lin - rot;
+            float right_rotation = lin + rot;
+            float left_rotation = lin - rot;
             *lPow = left_rotation;
             *rPow = right_rotation;
             DriveMotors(*lPow, *rPow);
@@ -391,9 +395,9 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
         {
             error_x = GPS_x_current_x - GPS_x;
             error_y = (GPS_y_current_y + 2) - GPS_y;
-            int rot = error_x * kp + (error_x - error_x_last) / 2 * kd;
-            double right_rotation = lin - rot;
-            double left_rotation = lin + rot;
+            float rot = error_x * kp + (error_x - error_x_last) / 2 * kd;
+            float right_rotation = lin - rot;
+            float left_rotation = lin + rot;
             *lPow = left_rotation;
             *rPow = right_rotation;
             DriveMotors(*lPow, *rPow);
@@ -406,9 +410,9 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
         {
             error_x = GPS_x - (GPS_x_current_x - 2);
             error_y = GPS_y - GPS_y_current_y;
-            int rot = error_y * kp + (error_y - error_y_last) / 2 * kd;
-            double right_rotation = lin + rot;
-            double left_rotation = lin - rot;
+            float rot = error_y * kp + (error_y - error_y_last) / 2 * kd;
+            float right_rotation = lin + rot;
+            float left_rotation = lin - rot;
             *lPow = left_rotation;
             *rPow = right_rotation;
             DriveMotors(*lPow, *rPow);
@@ -422,9 +426,9 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
         {
             error_x = GPS_x - GPS_x_current_x;
             error_y = GPS_y - (GPS_y_current_y - 2);
-            int rot = error_x * kp + (error_x - error_x_last) / 2 * kd;
-            double right_rotation = lin - rot;
-            double left_rotation = lin + rot;
+            float rot = error_x * kp + (error_x - error_x_last) / 2 * kd;
+            float right_rotation = lin - rot;
+            float left_rotation = lin + rot;
             *lPow = left_rotation;
             *rPow = right_rotation;
             DriveMotors(*lPow, *rPow);
@@ -435,6 +439,8 @@ void MegaRob::Move(std::vector<bool> Z, float *lPow, float *rPow)
         // printf("Error x: %f\n", error_x);
         // printf("Error y: %f\n", error_y);
     }
+    std::cout << "Final position x: " << GPS_x << ", y: " << GPS_y << std::endl;
+    std::cout << "Current gps pos x: " << GPS_x_current_x << ", y: " << GPS_y_current_y << std::endl;
 }
 
 // Rotate functions
@@ -535,7 +541,7 @@ void MegaRob::rotate_right(float *lPow, float *rPow, int compass)
     }
 }
 
-std::vector<std::pair<int, int>> MegaRob::path_finding(std::string map[27][55], std::vector<int> list_not_visited_x, std::vector<int> list_not_visited_y)
+std::vector<std::string> MegaRob::path_finding(std::string map[27][55], std::vector<int> list_not_visited_x, std::vector<int> list_not_visited_y)
 {
 
     std::vector<std::pair<int, int>> not_visited_positions;
@@ -544,10 +550,17 @@ std::vector<std::pair<int, int>> MegaRob::path_finding(std::string map[27][55], 
         not_visited_positions.push_back(std::make_pair(list_not_visited_y[i], list_not_visited_x[i]));
     }
 
+    for (const auto &pos : not_visited_positions)
+    {
+        std::cout << "Not visited position: (" << pos.first << ", " << pos.second << ")";
+    }
+    std::cout << std::endl;
+
     std::vector<int> linear_movements;
-    std::vector<int> overall_movements;
+    std::vector<std::vector<std::string>> overall_movements;
 
     // Dijkstra's algorithm
+    // printf("Dijkstra's algorithm\n");
 
     for (int i = 0; i < not_visited_positions.size(); i++)
     {
@@ -565,16 +578,18 @@ std::vector<std::pair<int, int>> MegaRob::path_finding(std::string map[27][55], 
             map_for_path.push_back(row);
         }
 
-        map[map_y_current][map_x_current] = 1;
+        map_for_path[map_y_current][map_x_current] = 1;
 
         while (map_for_path[target_y][target_x] == 0)
         {
             std::vector<int> max_values;
-            for (int index = 0; i < map_for_path.size(); i++)
+            for (int index = 0; index < map_for_path.size(); index++)
             {
                 max_values.push_back(*std::max_element(map_for_path[index].begin(), map_for_path[index].end()));
             }
             int max_value = *std::max_element(max_values.begin(), max_values.end());
+
+            printf("Max_value %d\n", max_value);
 
             std::vector<std::pair<int, int>> possible_positons;
 
@@ -588,6 +603,12 @@ std::vector<std::pair<int, int>> MegaRob::path_finding(std::string map[27][55], 
                     }
                 }
             }
+
+            for (const auto &pos : possible_positons)
+            {
+                std::cout << "Possible position: (" << pos.first << ", " << pos.second << ")";
+            }
+            std::cout << std::endl;
 
             std::vector<std::pair<int, int>> sei_la = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
@@ -605,336 +626,390 @@ std::vector<std::pair<int, int>> MegaRob::path_finding(std::string map[27][55], 
                 }
             }
         }
+        // printf("Here\n");
 
-        std::vector<int> movements;
+        std::vector<std::string> movements;
         std::vector<int> max_values;
-        for (int index = 0; i < map_for_path.size(); i++)
+        for (int index = 0; index < map_for_path.size(); index++)
         {
             max_values.push_back(*std::max_element(map_for_path[index].begin(), map_for_path[index].end()));
         }
         int max_value = *std::max_element(max_values.begin(), max_values.end());
 
+        printf("Max_value %d\n", max_value);
         int current_x = target_x;
         int current_y = target_y;
 
-        for (int i = 0; i < max_value-1; i++)
+        for (int i = 0; i < max_value - 1; i++)
         {
-            if (current_x > 0 && map_for_path[current_y][current_x - 1] == max_value - 1)
+            std::vector<std::vector<int>> sides_array = {
+                {0, map_for_path[current_y - 1][current_x], 0},
+                {map_for_path[current_y][current_x - 1], map_for_path[current_y][current_x], map_for_path[current_y][current_x + 1]},
+                {0, map_for_path[current_y + 1][current_x], 0}};
+
+            std::pair<int, int> ji = {-1, -1};
+            for (int j = 0; j < sides_array.size(); j++)
             {
-                movements.push_back(0);
-                current_x--;
+                for (int k = 0; k < sides_array[j].size(); k++)
+                {
+                    if (sides_array[j][k] == max_value - 1)
+                    {
+                        ji = {j, k};
+                        break;
+                    }
+                }
+                if (ji.first != -1)
+                    break;
             }
-            else if (current_x < 54 && map_for_path[current_y][current_x + 1] == max_value - 1)
+
+            std::cout << "Sides array:\n";
+            for (const auto &row : sides_array)
             {
-                movements.push_back(1);
-                current_x++;
+                for (const auto &elem : row)
+                {
+                    std::cout << elem << " ";
+                }
+                std::cout << "\n";
             }
-            else if (current_y > 0 && map_for_path[current_y - 1][current_x] == max_value - 1)
+            std::cout << "Positions in sides array (j_i, i_i): " << ji.first << ", " << ji.second << "\n";
+
+            if (ji.first == -1 || ji.second == -1)
             {
-                movements.push_back(2);
-                current_y--;
+                break; // No valid moves found, break the loop
             }
-            else if (current_y < 26 && map_for_path[current_y + 1][current_x] == max_value - 1)
+
+            if (ji == std::make_pair(0, 1))
             {
-                movements.push_back(3);
-                current_y++;
+                movements.push_back("DOWN");
+                current_y -= 1;
             }
+            else if (ji == std::make_pair(1, 0))
+            {
+                movements.push_back("RIGHT");
+                current_x -= 1;
+            }
+            else if (ji == std::make_pair(1, 2))
+            {
+                movements.push_back("LEFT");
+                current_x += 1;
+            }
+            else if (ji == std::make_pair(2, 1))
+            {
+                movements.push_back("UP");
+                current_y += 1;
+            }
+
+            max_value -= 1;
         }
 
-        // std::vector<std::vector<int>> dist(50, std::vector<int>(50, 100));
-        // std::vector<std::vector<std::pair<int, int>>> prev(50, std::vector<std::pair<int, int>>(50, {-1, -1}));
-        // std::priority_queue<std::tuple<int, int, int>, std::vector<std::tuple<int, int, int>>, std::greater<>> pq;
-
-        // int start_x = map_x_current;
-        // int start_y = map_y_current;
-        // dist[start_y][start_x] = 0;
-        // pq.push({0, start_y, start_x});
-
-        // std::vector<std::pair<int, int>> directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-
-        // while (!pq.empty())
-        // {
-        //     // printf("A*, more like ASHITYCODE \n");
-        //     auto [d, y, x] = pq.top();
-        //     pq.pop();
-
-        //     if (map[y][x] == "NV")
-        //     {
-        //         std::vector<std::pair<int, int>> path;
-        //         for (std::pair<int, int> at = {y, x}; at != std::make_pair(-1, -1); at = prev[at.first][at.second])
-        //         {
-        //             path.push_back(at);
-        //         }
-        //         std::reverse(path.begin(), path.end());
-        //         printf("Path found\n");
-        //         // print the path
-        //          for (auto [y, x] : path)
-        //          {
-        //              printf("(%d, %d) -> ", y, x);
-        //          }
-        //         return path;
-        //     }
-
-        //     for (auto [dy, dx] : directions)
-        //     {
-        //         int ny = y + dy;
-        //         int nx = x + dx;
-        //         if (ny >= 0 && ny < 50 && nx >= 0 && nx < 50 && map[ny][nx] != "WC" && map[ny][nx] != "WLR")
-        //         {
-        //             int new_dist = d + 1;
-        //             if (new_dist < dist[ny][nx])
-        //             {
-        //                 dist[ny][nx] = new_dist;
-        //                 prev[ny][nx] = {y, x};
-        //                 pq.push({new_dist, ny, nx});
-        //             }
-        //         }
-        //     }
-        // }
-        // printf("No path found\n");
-        // return {}; // Return an empty path if no path is found
-    }
-}
-
-    struct pair_hash
-    {
-        template <class T1, class T2>
-        std::size_t operator()(const std::pair<T1, T2> &pair) const
+        std::cout << "Movements:\n";
+        for (const auto &move : movements)
         {
-            return std::hash<T1>()(pair.first) ^ std::hash<T2>()(pair.second);
-        }
-    };
-
-    void MegaRob::pather(const std::vector<std::string> &next_movements, float *lPow, float *rPow, int compass)
-    {
-        auto rotate_until_facing = [&](std::vector<bool> &quadrant, int direction_idx)
-        {
-            while (!quadrant[direction_idx])
-            {
-                // Rotate
-                rotate_left(lPow, rPow, compass);
-                quadrant = DefineQuadrant(compass);
-            }
-            return quadrant;
-        };
-
-        auto move_and_update_quadrant = [&](std::vector<bool> &quadrant, float *lPow, float *rPow)
-        {
-            Move(quadrant, lPow, rPow);
-            quadrant = DefineQuadrant(compass);
-            return quadrant;
-        };
-
-        auto get_rotation_function = [&](const std::string &prev_direction, const std::string &next_direction)
-        {
-            using RotationFunction = void (MegaRob::*)(float *, float *, int);
-            static const std::unordered_map<std::pair<std::string, std::string>, RotationFunction, pair_hash> rotation_map = {
-                {{"LEFT", "DOWN"}, &MegaRob::rotate_left},
-                {{"LEFT", "UP"}, &MegaRob::rotate_right},
-                {{"RIGHT", "DOWN"}, &MegaRob::rotate_right},
-                {{"RIGHT", "UP"}, &MegaRob::rotate_left},
-                {{"UP", "LEFT"}, &MegaRob::rotate_left},
-                {{"UP", "RIGHT"}, &MegaRob::rotate_right},
-                {{"DOWN", "LEFT"}, &MegaRob::rotate_right},
-                {{"DOWN", "RIGHT"}, &MegaRob::rotate_left}};
-            auto it = rotation_map.find({prev_direction, next_direction});
-            return it != rotation_map.end() ? it->second : nullptr;
-        };
-
-        std::vector<bool> quadrant = DefineQuadrant(compass);
-        std::unordered_map<std::string, int> direction_map = {
-            {"LEFT", 2},
-            {"RIGHT", 0},
-            {"UP", 1},
-            {"DOWN", 3}};
-
-        if (direction_map.find(next_movements[0]) != direction_map.end())
-        {
-            quadrant = rotate_until_facing(quadrant, direction_map[next_movements[0]]);
+            std::cout << move << "\n";
         }
 
-        quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
-        std::cout << "Next movements: ";
-        for (const auto &movement : next_movements)
+        std::vector<std::string> filtered_movements;
+        for (size_t i = 1; i < movements.size(); i += 2)
         {
-            std::cout << movement << " ";
+            filtered_movements.push_back(movements[i]);
+        }
+        std::reverse(filtered_movements.begin(), filtered_movements.end());
+
+        overall_movements.push_back(filtered_movements);
+
+        std::cout << "The agent must follow the next movements: ";
+        for (const auto &move : filtered_movements)
+        {
+            std::cout << move << " ";
         }
         std::cout << std::endl;
 
-        for (size_t i = 1; i < next_movements.size(); ++i)
+        // Equivalent of num_rotations = sum(1 for i in range(1, len(movements)) if movements[i] != movements[i - 1])
+        int num_rotations = 0;
+        for (size_t i = 1; i < filtered_movements.size(); ++i)
         {
-            if (next_movements[i] == next_movements[i - 1])
+            if (filtered_movements[i] != filtered_movements[i - 1])
             {
-                quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
-            }
-            else
-            {
-                auto rotation_function = get_rotation_function(next_movements[i - 1], next_movements[i]);
-                if (rotation_function)
-                {
-                    quadrant = DefineQuadrant(compass);
-                    quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
-                }
+                ++num_rotations;
             }
         }
+        int real_num_movements = num_rotations + filtered_movements.size();
+
+        linear_movements.push_back(real_num_movements);
+
+    }
+    std::cout << "Linear movements: ";
+    for (const auto &movement : linear_movements)
+    {
+        std::cout << movement << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "Overall movements: ";
+    for (const auto &movements : overall_movements)
+    {
+        for (const auto &move : movements)
+        {
+            std::cout << move << " ";
+        }
+        std::cout << std::endl;
     }
 
-    void DeterminateAction(float *lPow, float *rPow, MegaRob &mouse)
+    int min_index = std::distance(linear_movements.begin(), std::min_element(linear_movements.begin(), linear_movements.end()));
+    std::cout << "The closest path is = ";
+    for (const auto &move : overall_movements[min_index])
     {
-        ReadSensors();
+        std::cout << move << " ";
+    }
+    std::cout << std::endl;
+    return overall_movements[min_index];
+}
 
-        // * Variables
-        int compass_direction = 0;       // Direction it's facing
-        float left, right, center, back; // Sensor values
-        float x, y;                      // GPS values to get
-        float Gps_x, Gps_y;              // GPS values to set
+struct pair_hash
+{
+    template <class T1, class T2>
+    std::size_t operator()(const std::pair<T1, T2> &pair) const
+    {
+        return std::hash<T1>()(pair.first) ^ std::hash<T2>()(pair.second);
+    }
+};
 
-        // * Read sensors
-        if (IsObstacleReady(LEFT))
-            left = GetObstacleSensor(LEFT);
-        if (IsObstacleReady(RIGHT))
-            right = GetObstacleSensor(RIGHT);
-        if (IsObstacleReady(CENTER))
-            center = GetObstacleSensor(CENTER);
-        if (IsObstacleReady(OTHER1))
-            back = GetObstacleSensor(OTHER1);
-
-        if (IsCompassReady())
+void MegaRob::pather(const std::vector<std::string> &next_movements, float *lPow, float *rPow, int compass)
+{
+    printf("PATHING\n");
+    auto rotate_until_facing = [&](std::vector<bool> &quadrant, int direction_idx)
+    {
+        while (!quadrant[direction_idx])
         {
-            compass_direction = GetCompassSensor();
+            // Rotate
+            rotate_left(lPow, rPow, compass);
+            quadrant = DefineQuadrant(compass);
         }
+        return quadrant;
+    };
 
-        if (IsGPSReady())
+    auto move_and_update_quadrant = [&](std::vector<bool> &quadrant, float *lPow, float *rPow)
+    {
+        Move(quadrant, lPow, rPow);
+        quadrant = DefineQuadrant(compass);
+        return quadrant;
+    };
+
+    auto get_rotation_function = [&](const std::string &prev_direction, const std::string &next_direction)
+    {
+        using RotationFunction = void (MegaRob::*)(float *, float *, int);
+        static const std::unordered_map<std::pair<std::string, std::string>, RotationFunction, pair_hash> rotation_map = {
+            {{"LEFT", "DOWN"}, &MegaRob::rotate_left},
+            {{"LEFT", "UP"}, &MegaRob::rotate_right},
+            {{"RIGHT", "DOWN"}, &MegaRob::rotate_right},
+            {{"RIGHT", "UP"}, &MegaRob::rotate_left},
+            {{"UP", "LEFT"}, &MegaRob::rotate_left},
+            {{"UP", "RIGHT"}, &MegaRob::rotate_right},
+            {{"DOWN", "LEFT"}, &MegaRob::rotate_right},
+            {{"DOWN", "RIGHT"}, &MegaRob::rotate_left}};
+        auto it = rotation_map.find({prev_direction, next_direction});
+        return it != rotation_map.end() ? it->second : nullptr;
+    };
+
+    std::vector<bool> quadrant = DefineQuadrant(compass);
+    std::unordered_map<std::string, int> direction_map = {
+        {"LEFT", 2},
+        {"RIGHT", 0},
+        {"UP", 1},
+        {"DOWN", 3}};
+
+    if (direction_map.find(next_movements[0]) != direction_map.end())
+    {
+        quadrant = rotate_until_facing(quadrant, direction_map[next_movements[0]]);
+    }
+
+    quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
+    std::cout << "Next movements: ";
+    for (const auto &movement : next_movements)
+    {
+        std::cout << movement << " ";
+    }
+    std::cout << std::endl;
+
+    for (size_t i = 1; i < next_movements.size(); ++i)
+    {
+        if (next_movements[i] == next_movements[i - 1])
         {
-            x = GetX();
-            y = GetY();
-            // printf("Before GPS x: %f\n", x);
-            // printf("Before GPS y: %f\n", y);
-            if (mouse.GPS_x_init == 0 && mouse.GPS_y_init == 0)
-            {
-                // printf("First time\n");
-                mouse.GPS_x_init = GetX();
-                mouse.GPS_y_init = GetY();
-                mouse.GPS_x_start = GetX();
-                mouse.GPS_y_start = GetY(); // pila
-            }
-        }
-
-        // std::cout << "Entrou na função" << std::endl;
-        Gps_x = x - mouse.GPS_x_init;
-        Gps_y = y - mouse.GPS_y_init;
-
-        // printf(" AAAA Gps x: %f Gps init %f\n", Gps_x, mouse.GPS_x_init);
-        // printf(" AAAA Gps y: %f\n", Gps_y);
-        // printf("GPS_INIT \n");
-
-        mouse.GPS_x_current = mouse.get_current_position(Gps_x, -26, 28, 2);
-        mouse.GPS_y_current = mouse.get_current_position(Gps_y, -12, 14, 2);
-
-        // printf("Got Current Pos \n");
-
-        mouse.map_x_init = 27;
-        mouse.map_y_init = 13;
-
-        mouse.map_x_current = mouse.map_x_init + mouse.GPS_x_current;
-        mouse.map_y_current = mouse.map_y_init - mouse.GPS_y_current;
-
-        //    printf("Gps current %f, %f\n", mouse.GPS_x_current, mouse.GPS_y_current);
-
-        // printf("Map Current %d, %d\n", mouse.map_y_current, mouse.map_x_current);
-
-        mouse.map_x_current = mouse.map_x_current ? mouse.map_x_current : mouse.map_x_init;
-        mouse.map_y_current = mouse.map_y_current ? mouse.map_y_current : mouse.map_y_init;
-
-        // printf("Got Current Map pos \n");
-        // printf("Map innit %d, %d\n", mouse.map_x_init, mouse.map_y_init);
-
-        std::vector<bool> quadrant = mouse.DefineQuadrant(compass_direction);
-
-        // Ele vai buscar o quadrante de forma correta
-        // std::cout << "Quadrant : " << quadrant[0] << " " << quadrant[1] << " " << quadrant[2] << " " << quadrant[3] << std::endl;
-        mouse.map[mouse.map_y_init][mouse.map_x_init] = "NV"; // Not visited
-
-        std::string F, F2, R, R2, L, L2;
-        std::vector<std::string> place_holder = mouse.Mapper(left, right, center, quadrant, mouse.map_y_current, mouse.map_x_current);
-        F = place_holder[0];
-        F2 = place_holder[1];
-        R = place_holder[2];
-        R2 = place_holder[3];
-        L = place_holder[4];
-        L2 = place_holder[5];
-
-        // E isto também
-        // std::cout << "F: " << F << " F2: " << F2 << " R: " << R << " R2: " << R2 << " L: " << L << " L2: " << L2 << std::endl;
-
-        mouse.map[mouse.map_y_current][mouse.map_x_current] = "A";
-
-        // printf("Cenas \n");
-
-        std::vector<std::pair<int, int>> positions_not_visited;
-        positions_not_visited = mouse.find_positions(mouse.map, "SV");
-
-        // std::cout << "Positions not visited : " << positions_not_visited.size() << std::endl;
-        // algo de errado n está certo
-
-        std::vector<int> list_not_visited_y, list_not_visited_x;
-
-        for (auto &position : positions_not_visited)
-        {
-            list_not_visited_y.push_back(position.first);
-            list_not_visited_x.push_back(position.second);
-        }
-
-        positions_not_visited = mouse.find_positions(mouse.map, "A");
-
-        std::vector<int> current_position_y, current_position_x;
-
-        for (auto &position : positions_not_visited)
-        {
-            current_position_y.push_back(position.first);
-            current_position_y.push_back(position.second);
-        }
-
-        mouse.map[mouse.map_y_current][mouse.map_x_current] = "NV";
-
-        // printf("positions \n");
-
-        if (should_rotate_right(R2, R, F2))
-        {
-            mouse.rotate_right(lPow, rPow, compass_direction);
-        }
-        else if (should_rotate_left(L2, L, F2))
-        {
-            mouse.rotate_left(lPow, rPow, compass_direction);
-        }
-        else if (F == "E" && F2 != "NV")
-        {
-            mouse.Move(quadrant, lPow, rPow);
+            quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
         }
         else
         {
-            if (list_not_visited_y.size() == 0 or list_not_visited_x.size() == 0)
+            auto rotation_function = get_rotation_function(next_movements[i - 1], next_movements[i]);
+            if (rotation_function)
             {
-                printf("Aqui??? \n");
-                mouse.save_map();
-                printf("Finished\n");
-                exit(0);
-            }
-
-            std::vector<std::pair<int, int>> list_of_movements;
-            printf("Path finding : \n");
-            list_of_movements = mouse.path_finding(mouse.map, list_not_visited_x, list_not_visited_y);
-            printf("Got something : \n");
-            mouse.pather(place_holder, lPow, rPow, compass_direction);
-
-            // print list_of_movements
-            for (auto &movement : list_of_movements)
-            {
-                printf("Movements : x: %d, y: %d\n", movement.first, movement.second);
+                quadrant = DefineQuadrant(compass);
+                quadrant = move_and_update_quadrant(quadrant, lPow, rPow);
             }
         }
-        *lPow = 0.0;
-        *rPow = 0.0;
-        DriveMotors(*lPow, *rPow);
-        mouse.save_map();
     }
+}
+
+void DeterminateAction(float *lPow, float *rPow, MegaRob &mouse)
+{
+    ReadSensors();
+
+    // * Variables
+    int compass_direction = 0;       // Direction it's facing
+    float left, right, center, back; // Sensor values
+    float x, y;                      // GPS values to get
+    float Gps_x, Gps_y;              // GPS values to set
+
+    // * Read sensors
+    if (IsObstacleReady(LEFT))
+        left = GetObstacleSensor(LEFT);
+    if (IsObstacleReady(RIGHT))
+        right = GetObstacleSensor(RIGHT);
+    if (IsObstacleReady(CENTER))
+        center = GetObstacleSensor(CENTER);
+    if (IsObstacleReady(OTHER1))
+        back = GetObstacleSensor(OTHER1);
+
+    if (IsCompassReady())
+    {
+        compass_direction = GetCompassSensor();
+    }
+
+    if (IsGPSReady())
+    {
+        x = GetX();
+        y = GetY();
+        // printf("Before GPS x: %f\n", x);
+        // printf("Before GPS y: %f\n", y);
+        if (mouse.GPS_x_init == 0 && mouse.GPS_y_init == 0)
+        {
+            // printf("First time\n");
+            mouse.GPS_x_init = GetX();
+            mouse.GPS_y_init = GetY();
+            mouse.GPS_x_start = GetX();
+            mouse.GPS_y_start = GetY(); 
+        }
+    }
+
+    // std::cout << "Entrou na função" << std::endl;
+    Gps_x = x - mouse.GPS_x_init;
+    Gps_y = y - mouse.GPS_y_init;
+
+    printf("Gps Innit x: %f\n", mouse.GPS_x_init);
+    printf("Gps Innit y: %f\n", mouse.GPS_y_init);
+    // printf(" AAAA Gps y: %f\n", Gps_y);
+    // printf("GPS_INIT \n");
+
+    mouse.GPS_x_current = mouse.get_current_position(Gps_x, -26, 28, 2);
+    mouse.GPS_y_current = mouse.get_current_position(Gps_y, -12, 14, 2);
+
+    // printf("Got Current Pos \n");
+
+    mouse.map_x_init = 27;
+    mouse.map_y_init = 13;
+
+    mouse.map_x_current = mouse.map_x_init + mouse.GPS_x_current;
+    mouse.map_y_current = mouse.map_y_init - mouse.GPS_y_current;
+
+    //    printf("Gps current %f, %f\n", mouse.GPS_x_current, mouse.GPS_y_current);
+
+    // printf("Map Current %d, %d\n", mouse.map_y_current, mouse.map_x_current);
+
+    mouse.map_x_current = mouse.map_x_current ? mouse.map_x_current : mouse.map_x_init;
+    mouse.map_y_current = mouse.map_y_current ? mouse.map_y_current : mouse.map_y_init;
+
+    // printf("Got Current Map pos \n");
+    // printf("Map innit %d, %d\n", mouse.map_x_init, mouse.map_y_init);
+
+    std::vector<bool> quadrant = mouse.DefineQuadrant(compass_direction);
+
+    // Ele vai buscar o quadrante de forma correta
+    // std::cout << "Quadrant : " << quadrant[0] << " " << quadrant[1] << " " << quadrant[2] << " " << quadrant[3] << std::endl;
+    mouse.map[mouse.map_y_init][mouse.map_x_init] = "NV"; // Not visited
+
+    std::string F, F2, R, R2, L, L2;
+    std::vector<std::string> place_holder = mouse.Mapper(left, right, center, quadrant, mouse.map_y_current, mouse.map_x_current);
+    F = place_holder[0];
+    F2 = place_holder[1];
+    R = place_holder[2];
+    R2 = place_holder[3];
+    L = place_holder[4];
+    L2 = place_holder[5];
+
+    // for(int i =0; i<27; i++){
+    //     for(int j =0; j<55; j++){
+    //         printf("%s", mouse.map[i][j].c_str());
+    //     }
+    //     printf("\n");
+    // }
+
+    // E isto também
+    // std::cout << "F: " << F << " F2: " << F2 << " R: " << R << " R2: " << R2 << " L: " << L << " L2: " << L2 << std::endl;
+
+    mouse.map[mouse.map_y_current][mouse.map_x_current] = "A";
+
+    // printf("Cenas \n");
+
+    std::vector<std::pair<int, int>> positions_not_visited;
+    positions_not_visited = mouse.find_positions(mouse.map, "SV");
+
+    // std::cout << "Positions not visited : " << positions_not_visited.size() << std::endl;
+    // algo de errado n está certo
+
+    std::vector<int> list_not_visited_y, list_not_visited_x;
+
+    for (auto &position : positions_not_visited)
+    {
+        list_not_visited_y.push_back(position.first);
+        list_not_visited_x.push_back(position.second);
+    }
+
+    positions_not_visited = mouse.find_positions(mouse.map, "A");
+
+    std::vector<int> current_position_y, current_position_x;
+
+    for (auto &position : positions_not_visited)
+    {
+        current_position_y.push_back(position.first);
+        current_position_y.push_back(position.second);
+    }
+
+    mouse.map[mouse.map_y_current][mouse.map_x_current] = "NV";
+
+    mouse.save_map();
+    // printf("positions \n");
+
+    if (should_rotate_right(R2, R, F2))
+    {
+        mouse.rotate_right(lPow, rPow, compass_direction);
+    }
+    else if (should_rotate_left(L2, L, F2))
+    {
+        mouse.rotate_left(lPow, rPow, compass_direction);
+    }
+    else if (F == "E" && F2 != "NV")
+    {
+        mouse.Move(quadrant, lPow, rPow);
+    }
+    else
+    {
+        if (list_not_visited_y.size() == 0 or list_not_visited_x.size() == 0)
+        {
+            printf("Aqui??? \n");
+            mouse.save_map();
+            printf("Finished\n");
+            exit(0);
+        }
+
+        std::vector<std::string> list_of_movements;
+        printf("Path finding : \n");
+        list_of_movements = mouse.path_finding(mouse.map, list_not_visited_x, list_not_visited_y);
+        printf("Got something : \n");
+        mouse.pather(list_of_movements, lPow, rPow, compass_direction);
+
+     
+    }
+    *lPow = 0.0;
+    *rPow = 0.0;
+    DriveMotors(*lPow, *rPow);
+    mouse.save_map();
+}
