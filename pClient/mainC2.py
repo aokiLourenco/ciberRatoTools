@@ -438,21 +438,25 @@ class MyRob(CRobLinkAngs):
 
 
     def dijkstra(self, graph, start):
-        distances = {x: float('inf') for x in graph.keys()}
+        distances = {node: float('inf') for node in graph}
         distances[start] = 0
+        previous = {node: None for node in graph}
+        queue = [(0, start)]  # (distance, node) to use the correct ordering in heapq
 
-        previous = {x: None for x in graph.keys()}
-        distances[start] = 0
-        queue = [(start, 0)]
         while queue:
-            node, distance = heapq.heappop(queue)
+            distance, node = heapq.heappop(queue)
+            if distance > distances[node]:
+                continue  # Skip if a shorter path to node has already been found
+
             for neighbor, cost in graph[node]:
                 temp = distance + cost
                 if temp < distances[neighbor]:
                     distances[neighbor] = temp
                     previous[neighbor] = node
-                    heapq.heappush(queue, (neighbor, temp))
+                    heapq.heappush(queue, (temp, neighbor))
+
         return distances, previous
+
 
     def get_path(self, start, end, backtracking):
         path = deque()
