@@ -355,158 +355,36 @@ class MyRob(CRobLinkAngs):
         self.driveMotors(0.00, 0.00)
 
     def map(self):
+    
+        DIRECTION_MAP = {
+        orientation.Right: [(0, 1, "|"), (-1, 0, "-"), (1, 0, "-"), (0, -1, "|")],
+        orientation.Up: [(-1, 0, "-"), (0, -1, "|"), (0, 1, "|"), (1, 0, "-")],
+        orientation.Down: [(1, 0, "-"), (0, 1, "|"), (0, -1, "|"), (-1, 0, "-")],
+        orientation.Left: [(0, -1, "|"), (1, 0, "-"), (-1, 0, "-"), (0, 1, "|")]
+        }
+
+        # Set current location as visited
         self.visited.add((self.map_location_x, self.map_location_y))
-        if self.orientation == orientation.Right:
-            if self.current_measures[0] > 1:
-                self.mymap[self.map_location_y,self.map_location_x + 1] = "|"
+
+        # Get current direction offsets and symbols based on the robot's orientation
+        direction_offsets = DIRECTION_MAP[self.orientation]
+
+        # Iterate through the direction offsets and current measures
+        for i, (dy, dx, symbol) in enumerate(direction_offsets):
+            adj_y, adj_x = self.map_location_y + dy, self.map_location_x + dx
+            adj_far_y, adj_far_x = self.map_location_y + 2 * dy, self.map_location_x + 2 * dx
+            
+            # Check the measure for each direction
+            if self.current_measures[i] > 1:
+                self.mymap[adj_y, adj_x] = symbol
             else:
-                self.mymap[self.map_location_y,self.map_location_x + 1] = "X"
-                self.mymap[self.map_location_y,self.map_location_x + 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x + 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
+                self.mymap[adj_y, adj_x] = "X"
+                self.mymap[adj_far_y, adj_far_x] = "X"
+                # Update graph and not_visited set
+                self.graph.setdefault((self.map_location_x, self.map_location_y), []).append(((adj_far_x, adj_far_y), 1))
+                self.not_visited.add((adj_far_x, adj_far_y))
 
-            if self.current_measures[1] > 1:
-                self.mymap[self.map_location_y - 1,self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y - 1,self.map_location_x] = "X"
-                self.mymap[self.map_location_y - 2,self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y - 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y - 2))
-
-            if self.current_measures[2] > 1:
-                self.mymap[self.map_location_y + 1,self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y + 1,self.map_location_x] = "X"
-                self.mymap[self.map_location_y + 2,self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y + 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y + 2))
-
-            if self.current_measures[3] > 1:
-                self.mymap[self.map_location_y,self.map_location_x - 1] = "|"
-            else:
-                self.mymap[self.map_location_y,self.map_location_x - 1] = "X"
-                self.mymap[self.map_location_y,self.map_location_x - 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x - 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x - 2, self.map_location_y))
-
-
-
-        elif self.orientation == orientation.Up:
-            if self.current_measures[0] > 1:
-                self.mymap[self.map_location_y - 1,self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y - 1,self.map_location_x] = "X"
-                self.mymap[self.map_location_y - 2,self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y - 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y - 2))
-
-            if self.current_measures[1] > 1:
-                self.mymap[self.map_location_y,self.map_location_x - 1] = "|"
-            else:
-                self.mymap[self.map_location_y,self.map_location_x - 1] = "X"
-                self.mymap[self.map_location_y,self.map_location_x - 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x - 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x - 2, self.map_location_y))
-
-            if self.current_measures[2] > 1:
-                self.mymap[self.map_location_y,self.map_location_x + 1] = "|"
-            else:
-                self.mymap[self.map_location_y,self.map_location_x + 1] = "X"
-                self.mymap[self.map_location_y,self.map_location_x + 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x + 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
-
-            if self.current_measures[3] > 1:
-                self.mymap[self.map_location_y + 1,self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y + 1,self.map_location_x] = "X"
-                self.mymap[self.map_location_y + 2,self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y + 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y + 2))
-
-
-        elif self.orientation == orientation.Down:
-            if self.current_measures[0] > 1:
-                self.mymap[self.map_location_y + 1,self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y + 1,self.map_location_x] = "X"
-                self.mymap[self.map_location_y + 2,self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y + 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y + 2))
-
-            if self.current_measures[1] > 1:
-                self.mymap[self.map_location_y,self.map_location_x + 1] = "|"
-            else:
-                self.mymap[self.map_location_y,self.map_location_x + 1] = "X"
-                self.mymap[self.map_location_y,self.map_location_x + 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x + 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
-
-            if self.current_measures[2] > 1:
-                self.mymap[self.map_location_y,self.map_location_x - 1] = "|"
-            else:
-                self.mymap[self.map_location_y,self.map_location_x - 1] = "X"
-                self.mymap[self.map_location_y,self.map_location_x - 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x - 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x - 2, self.map_location_y))
-
-            if self.current_measures[3] > 1:
-                self.mymap[self.map_location_y - 1,self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y - 1,self.map_location_x] = "X"
-                self.mymap[self.map_location_y - 2,self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y - 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y - 2))
-
-        else:
-            if self.current_measures[0] > 1:
-                self.mymap[self.map_location_y,self.map_location_x - 1] = "|"
-            else:
-                self.mymap[self.map_location_y,self.map_location_x - 1] = "X"
-                self.mymap[self.map_location_y,self.map_location_x - 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x - 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x - 2, self.map_location_y))
-
-            if self.current_measures[1] > 1:
-                self.mymap[self.map_location_y + 1,self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y + 1,self.map_location_x] = "X"
-                self.mymap[self.map_location_y + 2,self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y + 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y + 2))
-
-            if self.current_measures[2] > 1:
-                self.mymap[self.map_location_y - 1,self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y - 1,self.map_location_x] = "X"
-                self.mymap[self.map_location_y - 2,self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y - 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y - 2))
-
-            if self.current_measures[3] > 1:
-                self.mymap[self.map_location_y,self.map_location_x + 1] = "|"
-            else:
-                self.mymap[self.map_location_y,self.map_location_x + 1] = "X"
-                self.mymap[self.map_location_y,self.map_location_x + 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x + 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
+        # Infer dead ends
         self.infer_deadend()
         return
 
@@ -533,31 +411,32 @@ class MyRob(CRobLinkAngs):
             return False
 
     def create_mapping_file(self):
-        self.mymap[13,27] = "I"
-        f = open(self.filename,"w")
+        self.mymap[13,27] = "I"         
+        np.savetxt(self.filename, self.mymap, fmt='%s')
 
-        for row in self.mymap:
-            for val in row:
-                f.write("{:1}".format(val))
-            f.write("\n")
 
-        f.close()
 
     def infer_deadend(self):
-        for row in range(1, len(self.mymap), 2):
-            for i,cell in enumerate(self.mymap[row]):
-                wall_counter = 0
-                if cell == "X":
-                    walls = [self.mymap[row,i-1], self.mymap[row,i+1], self.mymap[row-1,i], self.mymap[row+1,i]]
-                    for wall in walls:
-                        if wall in ("|", "-"):
-                            wall_counter+=1
-                    if wall_counter == 3:
-                        self.visited.add((i, row))
-                        self.dead_end.append((i,row))
+        for row in range(1, self.mymap.shape[0], 2):
+            for col in range(1, self.mymap.shape[1], 2):
+                if self.mymap[row, col] == "X":
+                    walls = np.array([
+                        self.mymap[row, col - 1],  # left
+                        self.mymap[row, col + 1],  # right
+                        self.mymap[row - 1, col],  # above
+                        self.mymap[row + 1, col]   # below
+                    ])
+                    wall_count = np.sum(np.isin(walls, ["|", "-"]))
+                    if wall_count == 3:
+                        self.visited.add((col, row))
+                        self.dead_end.append((col, row))
+
+
 
     def dijkstra(self, graph, start):
         distances = {x: float('inf') for x in graph.keys()}
+        distances[start] = 0
+
         previous = {x: None for x in graph.keys()}
         distances[start] = 0
         queue = [(start, 0)]
