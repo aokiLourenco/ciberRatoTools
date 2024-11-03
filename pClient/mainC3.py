@@ -8,6 +8,8 @@ import pprint
 from enum import Enum
 import itertools
 import heapq
+import numpy as np
+
 
 pp = pprint.PrettyPrinter(indent=10)
 
@@ -35,7 +37,7 @@ class MyRob(CRobLinkAngs):
         self.first_boot = True
         self.moving = False
         self.rotating = False
-        self.mymap = [[' '] * (CELLCOLS * 4 - 1) for i in range(CELLROWS * 4 - 1)]
+        self.mymap = np.full(((CELLROWS * 4 - 1), (CELLCOLS * 4 - 1)), ' ', dtype=str)  # Fill map with empty spaces initially
         self.map_location_x = 27
         self.map_location_y = 13
         self.mymap[13][27] = "I"
@@ -66,7 +68,7 @@ class MyRob(CRobLinkAngs):
             print("Connection refused or error")
             quit()
 
-        print("Number of beacons: ", self.nBeacons)
+        #print("Number of beacons: ", self.nBeacons)
         self.beacons_positions = [(-1, -1) for i in range(int(self.nBeacons))]
 
         state = 'stop'
@@ -124,29 +126,27 @@ class MyRob(CRobLinkAngs):
                 self.state = "end"
                 return
         if self.state == "map":
-            print("I am mapping")
+            # print("I am mapping")
 
             # check if it is on top of a beacon
             if self.measures.ground != -1:
                 # saving the beacon location
                 self.beacons_positions[self.measures.ground] = (self.map_location_x, self.map_location_y)
 
-            print("\nBeacons positions: ");
+            # print("\nBeacons positions: ");
 
-            for i in range(0, len(self.beacons_positions)):
-                print(self.beacons_positions[i])
+            # for i in range(0, len(self.beacons_positions)):
+                # print(self.beacons_positions[i])
 
             self.map()
-            # self.infer_blocked()
-
             if self.path is not None and self.path != []:
                 self.state = "go_with_purpose"
             else:
                 self.state = "go"
 
         elif self.state == "go_with_purpose":
-            print("go_with_purpose")
-            print(self.map_location_x, self.map_location_y)
+            # print("go_with_purpose")
+            # print(self.map_location_x, self.map_location_y)
             if self.target_location is None:
                 # print("where_to_advanced")
                 self.where_to_advanced()
@@ -165,11 +165,11 @@ class MyRob(CRobLinkAngs):
         elif self.state == "go":
 
             # print("I am going")
-            print(self.map_location_x, self.map_location_y)
+            # print(self.map_location_x, self.map_location_y)
             if self.next():
                 self.go()
             else:
-                print("No path forward")
+                # print("No path forward")
                 self.where_to_basic()
 
         elif self.state == "rotate":
@@ -177,10 +177,10 @@ class MyRob(CRobLinkAngs):
             self.rotate()
 
         elif self.state == "stop":
-            print("I am stopping")
+            # print("I am stopping")
 
             if self.target_location == (self.map_location_x, self.map_location_y):
-                print("clearing path")
+                # print("clearing path")
                 self.path = None
                 self.target_location = None
                 self.target_locked = None
@@ -201,7 +201,7 @@ class MyRob(CRobLinkAngs):
         # Are there any free, not visited, spaces adjacent to me
         level = 2
         wall_level = 1
-        print(target)
+        # print(target)
 
         possible_places = [((self.map_location_x - level, self.map_location_y), orientation.Left,
                             (self.map_location_x - wall_level, self.map_location_y)),
@@ -223,9 +223,9 @@ class MyRob(CRobLinkAngs):
                             and self.mymap[adjacent[2][1]][adjacent[2][0]] != "|" and self.mymap[adjacent[2][1]][
                         adjacent[2][0]] != "-":
                         self.target_locked = adjacent[1]
-                        print(self.target_locked)
+                        # print(self.target_locked)
                         self.state = "rotate"
-                        print("found path now i am rotating")
+                        # print("found path now i am rotating")
                         return
             except IndexError as e:
                 continue
@@ -257,7 +257,7 @@ class MyRob(CRobLinkAngs):
             self.state = "map"
             return
 
-        print("I am travelling to {} using path {}".format(self.target_location, self.path))
+        # print("I am travelling to {} using path {}".format(self.target_location, self.path))
 
     def calculate_path(self, graph, start, end, path=[]):
         path = path + [start]
@@ -292,69 +292,35 @@ class MyRob(CRobLinkAngs):
 
     def go(self):
 
-        if self.state == "go_with_purpose":
-            inertia_comp = 1.55
-        else:
-            inertia_comp = 1.65
+        inertia_comp = 1.55 if self.state == "go_with_purpose" else 1.65
         factor = self.get_rotation_factor()
-        if self.orientation == orientation.Right:
-            if self.measures.x < self.supposed_x + inertia_comp:
-                self.move(0.13, 0.1, 0, factor)
-            else:
-                self.moving = False
-                self.supposed_x += 2
-                self.map_location_x += 2
-                self.state = "stop"
-                self.visited.add((self.map_location_x, self.map_location_y))
-                self.not_visited.discard((self.map_location_x, self.map_location_y))
-                if self.path is not None:
-                    self.path = self.path[1:]
-                    print(self.path)
 
-        elif self.orientation == orientation.Left:
-            if self.measures.x > self.supposed_x - inertia_comp:
-                self.move(0.13, 0.1, 0, factor)
-            else:
-                self.moving = False
-                self.supposed_x -= 2
-                self.map_location_x -= 2
-                self.state = "stop"
-                self.visited.add((self.map_location_x, self.map_location_y))
-                self.not_visited.discard((self.map_location_x, self.map_location_y))
-                if self.path is not None:
-                    self.path = self.path[1:]
-                    print(self.path)
+        adjustments = {
+            orientation.Right:  (self.measures.x < self.supposed_x + inertia_comp, 2, 0,2,0),
+            orientation.Left:   (self.measures.x > self.supposed_x - inertia_comp, -2, 0,-2,0),
+            orientation.Up:     (self.measures.y < self.supposed_y + inertia_comp, 0, 2,0,-2),
+            orientation.Down:   (self.measures.y > self.supposed_y - inertia_comp, 0, -2,0,2),
+        }
 
+        
+        move_check, dx, dy,mx,my = adjustments.get(self.orientation)
 
-        elif self.orientation == orientation.Up:
-            if self.measures.y < self.supposed_y + inertia_comp:
-                self.move(0.13, 0.1, 0, factor)
-            else:
-                self.moving = False
-                self.supposed_y += 2
-                self.map_location_y -= 2
-                self.state = "stop"
-                self.visited.add((self.map_location_x, self.map_location_y))
-                self.not_visited.discard((self.map_location_x, self.map_location_y))
-                if self.path is not None:
-                    self.path = self.path[1:]
-                    print(self.path)
+        if move_check:
+            self.move(0.13, 0.1, 0, factor)
 
-
-        elif self.orientation == orientation.Down:
-            if self.measures.y > self.supposed_y - inertia_comp:
-                self.move(0.13, 0.1, 0, factor)
-            else:
-                self.moving = False
-                self.supposed_y -= 2
-                self.map_location_y += 2
-                self.state = "stop"
-                self.visited.add((self.map_location_x, self.map_location_y))
-                self.not_visited.discard((self.map_location_x, self.map_location_y))
-                if self.path is not None:
-                    self.path = self.path[1:]
-                    print(self.path)
-
+        else:
+            self.moving = False
+            self.supposed_x += dx
+            self.supposed_y += dy
+            self.map_location_x += mx
+            self.map_location_y += my
+            self.state = "stop"
+            self.visited.add((self.map_location_x, self.map_location_y))
+            self.not_visited.discard((self.map_location_x, self.map_location_y))
+            if self.path is not None:
+                self.path = self.path[1:]
+                # print(self.path)
+                
     def get_rotation_factor(self, soft_rotation=True, target=None):
         if soft_rotation:
             supposed_heading = self.possible_headings[self.orientation.value]
@@ -388,185 +354,64 @@ class MyRob(CRobLinkAngs):
         self.driveMotors(0.00, 0.00)
 
     def map(self):
+        DIRECTION_MAP = {
+        orientation.Right: [(0, 1, "|"), (-1, 0, "-"), (1, 0, "-"), (0, -1, "|")],
+        orientation.Up: [(-1, 0, "-"), (0, -1, "|"), (0, 1, "|"), (1, 0, "-")],
+        orientation.Down: [(1, 0, "-"), (0, 1, "|"), (0, -1, "|"), (-1, 0, "-")],
+        orientation.Left: [(0, -1, "|"), (1, 0, "-"), (-1, 0, "-"), (0, 1, "|")]
+        }
+
+        # Set current location as visited
         self.visited.add((self.map_location_x, self.map_location_y))
-        if self.orientation == orientation.Right:
-            if self.current_measures[0] > 1:
-                self.mymap[self.map_location_y][self.map_location_x + 1] = "|"
+
+        # Get current direction offsets and symbols based on the robot's orientation
+        direction_offsets = DIRECTION_MAP[self.orientation]
+
+        # Iterate through the direction offsets and current measures
+        for i, (dy, dx, symbol) in enumerate(direction_offsets):
+            adj_y, adj_x = self.map_location_y + dy, self.map_location_x + dx
+            adj_far_y, adj_far_x = self.map_location_y + 2 * dy, self.map_location_x + 2 * dx
+            
+            # Check the measure for each direction
+            if self.current_measures[i] > 1:
+                self.mymap[adj_y, adj_x] = symbol
             else:
-                self.mymap[self.map_location_y][self.map_location_x + 1] = "X"
-                self.mymap[self.map_location_y][self.map_location_x + 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x + 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
+                self.mymap[adj_y, adj_x] = "X"
+                self.mymap[adj_far_y, adj_far_x] = "X"
+                # Update graph and not_visited set
+                self.graph.setdefault((self.map_location_x, self.map_location_y), []).append(((adj_far_x, adj_far_y), 1))
+                self.not_visited.add((adj_far_x, adj_far_y))
 
-            if self.current_measures[1] > 1:
-                self.mymap[self.map_location_y - 1][self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y - 1][self.map_location_x] = "X"
-                self.mymap[self.map_location_y - 2][self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y - 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y - 2))
-
-            if self.current_measures[2] > 1:
-                self.mymap[self.map_location_y + 1][self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y + 1][self.map_location_x] = "X"
-                self.mymap[self.map_location_y + 2][self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y + 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y + 2))
-
-            if self.current_measures[3] > 1:
-                self.mymap[self.map_location_y][self.map_location_x - 1] = "|"
-            else:
-                self.mymap[self.map_location_y][self.map_location_x - 1] = "X"
-                self.mymap[self.map_location_y][self.map_location_x - 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x - 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x - 2, self.map_location_y))
-
-
-
-        elif self.orientation == orientation.Up:
-            if self.current_measures[0] > 1:
-                self.mymap[self.map_location_y - 1][self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y - 1][self.map_location_x] = "X"
-                self.mymap[self.map_location_y - 2][self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y - 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y - 2))
-
-            if self.current_measures[1] > 1:
-                self.mymap[self.map_location_y][self.map_location_x - 1] = "|"
-            else:
-                self.mymap[self.map_location_y][self.map_location_x - 1] = "X"
-                self.mymap[self.map_location_y][self.map_location_x - 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x - 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x - 2, self.map_location_y))
-
-            if self.current_measures[2] > 1:
-                self.mymap[self.map_location_y][self.map_location_x + 1] = "|"
-            else:
-                self.mymap[self.map_location_y][self.map_location_x + 1] = "X"
-                self.mymap[self.map_location_y][self.map_location_x + 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x + 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
-
-            if self.current_measures[3] > 1:
-                self.mymap[self.map_location_y + 1][self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y + 1][self.map_location_x] = "X"
-                self.mymap[self.map_location_y + 2][self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y + 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y + 2))
-
-
-        elif self.orientation == orientation.Down:
-            if self.current_measures[0] > 1:
-                self.mymap[self.map_location_y + 1][self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y + 1][self.map_location_x] = "X"
-                self.mymap[self.map_location_y + 2][self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y + 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y + 2))
-
-            if self.current_measures[1] > 1:
-                self.mymap[self.map_location_y][self.map_location_x + 1] = "|"
-            else:
-                self.mymap[self.map_location_y][self.map_location_x + 1] = "X"
-                self.mymap[self.map_location_y][self.map_location_x + 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x + 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
-
-            if self.current_measures[2] > 1:
-                self.mymap[self.map_location_y][self.map_location_x - 1] = "|"
-            else:
-                self.mymap[self.map_location_y][self.map_location_x - 1] = "X"
-                self.mymap[self.map_location_y][self.map_location_x - 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x - 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x - 2, self.map_location_y))
-
-            if self.current_measures[3] > 1:
-                self.mymap[self.map_location_y - 1][self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y - 1][self.map_location_x] = "X"
-                self.mymap[self.map_location_y - 2][self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y - 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y - 2))
-
-        else:
-            if self.current_measures[0] > 1:
-                self.mymap[self.map_location_y][self.map_location_x - 1] = "|"
-            else:
-                self.mymap[self.map_location_y][self.map_location_x - 1] = "X"
-                self.mymap[self.map_location_y][self.map_location_x - 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x - 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x - 2, self.map_location_y))
-
-            if self.current_measures[1] > 1:
-                self.mymap[self.map_location_y + 1][self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y + 1][self.map_location_x] = "X"
-                self.mymap[self.map_location_y + 2][self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y + 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y + 2))
-
-            if self.current_measures[2] > 1:
-                self.mymap[self.map_location_y - 1][self.map_location_x] = "-"
-            else:
-                self.mymap[self.map_location_y - 1][self.map_location_x] = "X"
-                self.mymap[self.map_location_y - 2][self.map_location_x] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x, self.map_location_y - 2), 1))
-                self.not_visited.add((self.map_location_x, self.map_location_y - 2))
-
-            if self.current_measures[3] > 1:
-                self.mymap[self.map_location_y][self.map_location_x + 1] = "|"
-            else:
-                self.mymap[self.map_location_y][self.map_location_x + 1] = "X"
-                self.mymap[self.map_location_y][self.map_location_x + 2] = "X"
-                self.graph.setdefault((self.map_location_x, self.map_location_y), []) \
-                    .append(((self.map_location_x + 2, self.map_location_y), 1))
-                self.not_visited.add((self.map_location_x + 2, self.map_location_y))
 
         return
 
     def next(self):
         try:
-            if self.orientation == orientation.Right:
-                return self.mymap[self.map_location_y][self.map_location_x + 2] == "X" and \
-                       self.mymap[self.map_location_y][self.map_location_x + 1] != "|" and \
-                       (self.map_location_x + 2, self.map_location_y) not in self.visited
+            # Define the offsets and symbols based on orientation
+            CHECK_MAP = {
+                orientation.Right: ((0, 2), (0, 1), "|"),
+                orientation.Up: ((-2, 0), (-1, 0), "-"),
+                orientation.Left: ((0, -2), (0, -1), "|"),
+                orientation.Down: ((2, 0), (1, 0), "-")
+            }
 
-            elif self.orientation == orientation.Up:
-                return self.mymap[self.map_location_y - 2][self.map_location_x] == "X" and \
-                       self.mymap[self.map_location_y - 1][self.map_location_x] != "-" and \
-                       (self.map_location_x, self.map_location_y - 2) not in self.visited
-            elif self.orientation == orientation.Left:
-                return self.mymap[self.map_location_y][self.map_location_x - 2] == "X" and \
-                       self.mymap[self.map_location_y][self.map_location_x - 1] != "|" and \
-                       (self.map_location_x - 2, self.map_location_y) not in self.visited
-            else:
-                return self.mymap[self.map_location_y + 2][self.map_location_x] == "X" and \
-                       self.mymap[self.map_location_y + 1][self.map_location_x] != "-" and \
-                       (self.map_location_x, self.map_location_y + 2) not in self.visited
-        except:
+            # Get the specific offset and symbol for the current orientation
+            far_offset, near_offset, barrier_symbol = CHECK_MAP[self.orientation]
+
+            # Calculate positions
+            far_y, far_x = self.map_location_y + far_offset[0], self.map_location_x + far_offset[1]
+            near_y, near_x = self.map_location_y + near_offset[0], self.map_location_x + near_offset[1]
+
+            # Check the conditions in a single return statement
+            return (self.mymap[far_y, far_x] == "X" and
+                    self.mymap[near_y, near_x] != barrier_symbol and
+                    (self.map_location_x + far_offset[1], self.map_location_y + far_offset[0]) not in self.visited)
+        except IndexError:
+            # Return False if any indexing errors occur
             return False
 
     def create_pathing_file(self):
-        self.mymap[13][27] = "I"
+        self.mymap[13,27] = "I"
         f = open(self.filename, "w")
         initial_pos_x = 27
         initial_pos_y = 13
@@ -576,73 +421,54 @@ class MyRob(CRobLinkAngs):
             y = initial_pos_y - node[1]
             f.write("{} {}\n".format(x, y))
 
-    def infer_blocked(self):
-        for row in range(1, len(self.mymap), 2):
-            for i, cell in enumerate(self.mymap[row]):
-                wall_counter = 0
-                if cell == " ":
-                    try:
-                        walls = [self.mymap[row][i - 1], self.mymap[row][i + 1], self.mymap[row - 1][i],
-                                 self.mymap[row + 1][i]]
-                        for wall in walls:
-                            if wall in ("|", "-"):
-                                wall_counter += 1
-                        if wall_counter == 4:
-                            self.mymap[row][i] = "*"
-                    except:
-                        continue
 
     def dijkstra(self, graph, start):
-        distances = {x: float('inf') for x in graph.keys()}
-        previous = {x: None for x in graph.keys()}
+        distances = {node: float('inf') for node in graph}
         distances[start] = 0
-        queue = [(start, 0)]
+        previous = {node: None for node in graph}
+        queue = [(0, start)]  # (distance, node) to use the correct ordering in heapq
+
         while queue:
-            node, distance = heapq.heappop(queue)
+            distance, node = heapq.heappop(queue)
+            if distance > distances[node]:
+                continue  # Skip if a shorter path to node has already been found
+
             for neighbor, cost in graph[node]:
                 temp = distance + cost
                 if temp < distances[neighbor]:
                     distances[neighbor] = temp
                     previous[neighbor] = node
-                    heapq.heappush(queue, (neighbor, temp))
+                    heapq.heappush(queue, (temp, neighbor))
+
         return distances, previous
 
     def calculate_beacon_paths(self):
-        shortest = 99
-        shortest_path = None
-        shortest_permutation = None
 
-        shortest_unk = 99
-        shortest_path_unk = None
-        shortest_permutation_unk = None
-
-        paths = {}
-        perm_paths = {}
-
-        paths_unk = {}
-        perm_paths_unk = {}
+        shortest, shortest_unk = 99, 99
+        shortest_path, shortest_path_unk = None, None
+        shortest_permutation, shortest_permutation_unk = None, None
+        paths, perm_paths = {}, {}
+        paths_unk, perm_paths_unk = {}, {}
+        
+        # # Ensure graph uniqueness and add unvisited nodes to graph
         for key in self.graph.keys():
             self.graph[key] = list(set(self.graph[key]))
-
-        self.not_visited = self.not_visited - self.visited
-
+        self.not_visited -= self.visited
         for node in self.not_visited:
             self.graph.setdefault(node, [])
+
 
         new_graph = copy.deepcopy(self.graph)
         for row in range(1, len(self.mymap), 2):
             for i, cell in enumerate(self.mymap[row]):
                 possible_places = [((i + 2, row), 1, (i + 1, row)), ((i - 2, row), 1, (i - 1, row)),
                                    ((i, row + 2), 1, (i, row + 1)), ((i, row - 2), 1, (i, row - 1))]
-                if self.mymap[row][i] == ' ':
+                if cell == ' ':
                     for place in possible_places:
                         try:
-                            temp = self.mymap[place[0][1]][place[0][0]]
-                            if place[0][0] < 0 or place[0][1] < 0:
-                                continue
-                            if self.mymap[place[2][1]][place[2][0]] != "|" and self.mymap[place[2][1]][
-                                place[2][0]] != "-":
-                                new_graph.setdefault((i, row), []).append(((place[0][0], place[0][1]), 1))
+                            if place[0][0] >= 0 and place[0][1] >= 0 and \
+                            self.mymap[place[2][1]][place[2][0]] not in "|-":
+                                new_graph.setdefault((i, row), []).append((place[0], 1))
                         except:
                             # print("except {}".format(place))
                             continue
@@ -650,74 +476,59 @@ class MyRob(CRobLinkAngs):
                     if new_graph[(i, row)] == []:
                         for place in possible_places:
                             try:
-                                temp = self.mymap[place[0][1]][place[0][0]]
-                                if place[0][0] < 0 or place[0][1] < 0:
-                                    continue
-                                if self.mymap[place[2][1]][place[2][0]] != "|" and self.mymap[place[2][1]][
-                                    place[2][0]] != "-":
-                                    new_graph.setdefault((i, row), []).append(((place[0][0], place[0][1]), 1))
+                                if place[0][0] >= 0 and place[0][1] >= 0 and \
+                                self.mymap[place[2][1]][place[2][0]] not in "|-":
+                                    new_graph.setdefault((i, row), []).append((place[0], 1))
                             except:
                                 # print("except {}".format(place))
                                 continue
                 except:
+                    #print("except {}".format((i, row)))
                     continue
 
-        # print(new_graph)
-
-        # run dijkstra in every beacon_position
+        # # Calculate Dijkstra paths for beacons in both known and unknown maps
         for beacon in self.beacons_positions:
-            distances, backtracking = self.dijkstra(self.graph, beacon)
-            distances_unk, backtracking_unk = self.dijkstra(new_graph, beacon)
-            paths[beacon] = backtracking
-            paths_unk[beacon] = backtracking_unk
+            paths[beacon] = self.dijkstra(self.graph, beacon)[1]
+            paths_unk[beacon] = self.dijkstra(new_graph, beacon)[1]
 
-        # calculate every permutation of closed paths beginning at 27,13
-        perms = []
-        for perm in itertools.permutations(self.beacons_positions):
-            #if perm <= perm[::-1]:
-            if perm[0] == (27,13):
-                perms.append(perm)
+        # # Generate closed path permutations starting from (27,13)
+        perms = [perm for perm in itertools.permutations(self.beacons_positions) if perm[0] == (27, 13)]
 
-
-
-
-        # for each permutation, calculate path size
+         # # Calculate path size for each permutation
         for perm in perms:
-            print(perm[0])
-            perm_path = []
-            perm_path_unk = []
-            perm_list = list(perm)
-            perm_list.append(perm[0])  # create closed path
-            print("PERM {}".format(perm))
-            for i, beacon in enumerate(perm_list):
-                if i <= len(perm_list) - 2:
-                    perm_path.append(self.get_path(perm_list[i], perm_list[i + 1], paths[beacon]))
-                    perm_path_unk.append(self.get_path(perm_list[i], perm_list[i + 1], paths_unk[beacon]))
-            perm_paths[perm] = list(itertools.chain(*perm_path))
-            perm_paths_unk[perm] = list(itertools.chain(*perm_path_unk))
+            perm_path, perm_path_unk = [], []
+            perm_list = list(perm) + [perm[0]]
+            for i, beacon in enumerate(perm_list[:-1]):
+                perm_path.extend(self.get_path(perm_list[i], perm_list[i + 1], paths[beacon]))
+                perm_path_unk.extend(self.get_path(perm_list[i], perm_list[i + 1], paths_unk[beacon]))
+            perm_paths[perm], perm_paths_unk[perm] = perm_path, perm_path_unk
 
 
         for perm in perm_paths.keys():
+            # Update shortest path if a shorter path is found
             if len(perm_paths[perm]) < shortest:
                 shortest = len(perm_paths[perm])
-                shortest_path = perm_paths[perm]
+                shortest_path = np.array(perm_paths[perm])  # Convert to NumPy array
                 shortest_permutation = perm
 
+            # Update shortest unknown path if a shorter unknown path is found
             if len(perm_paths_unk[perm]) < shortest_unk:
                 shortest_unk = len(perm_paths_unk[perm])
-                shortest_path_unk = perm_paths_unk[perm]
+                shortest_path_unk = np.array(perm_paths_unk[perm])  # Convert to NumPy array
                 shortest_permutation_unk = perm
+
 
         print("Shortest path with known map {} with len {} and permutation {}".format(shortest_path, shortest, shortest_permutation))
 
         print("Shortest path with unknown map {} with len {} and permutation {}".format(shortest_path_unk, shortest_unk, shortest_permutation_unk))
 
-        if shortest_path == shortest_path_unk:
-            self.shortest_path_found = True
+        if(len(shortest_path) == len(shortest_path_unk) and shortest_permutation == shortest_permutation_unk):
             self.shortest_path = shortest_path
-            print("SHORTEST PATH FOUND")
+            self.shortest_path_found = True
+            print("Shortest path found")
 
         return
+
 
     def get_path(self, start, end, backtracking):
         path = deque()
