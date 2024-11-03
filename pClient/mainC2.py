@@ -259,68 +259,35 @@ class MyRob(CRobLinkAngs):
             self.target_locked = None
 
     def go(self):
-        if self.state == "go_with_purpose":
-            inertia_comp = 1.55
-        else:
-            inertia_comp = 1.65
+        inertia_comp = 1.55 if self.state == "go_with_purpose" else 1.65
         factor = self.get_rotation_factor()
-        if self.orientation == orientation.Right:
-            if self.measures.x < self.supposed_x + inertia_comp:
-                self.move(0.13, 0.1, 0, factor)
-            else:
-                self.moving = False
-                self.supposed_x += 2
-                self.map_location_x += 2
-                self.state = "stop"
-                self.visited.add((self.map_location_x, self.map_location_y))
-                self.not_visited.discard((self.map_location_x, self.map_location_y))
-                if self.path is not None:
-                    self.path = self.path[1:]
-                    print(self.path)
 
-        elif self.orientation == orientation.Left:
-            if self.measures.x > self.supposed_x - inertia_comp:
-                self.move(0.13, 0.1, 0, factor)
-            else:
-                self.moving = False
-                self.supposed_x -= 2
-                self.map_location_x -= 2
-                self.state = "stop"
-                self.visited.add((self.map_location_x, self.map_location_y))
-                self.not_visited.discard((self.map_location_x, self.map_location_y))
-                if self.path is not None:
-                    self.path = self.path[1:]
-                    print(self.path)
+        adjustments = {
+            orientation.Right:  (self.measures.x < self.supposed_x + inertia_comp, 2, 0,2,0),
+            orientation.Left:   (self.measures.x > self.supposed_x - inertia_comp, -2, 0,-2,0),
+            orientation.Up:     (self.measures.y < self.supposed_y + inertia_comp, 0, 2,0,-2),
+            orientation.Down:   (self.measures.y > self.supposed_y - inertia_comp, 0, -2,0,2),
+        }
 
+        
+        move_check, dx, dy,mx,my = adjustments.get(self.orientation)
 
-        elif self.orientation == orientation.Up:
-            if self.measures.y < self.supposed_y + inertia_comp:
-                self.move(0.13, 0.1, 0, factor)
-            else:
-                self.moving = False
-                self.supposed_y += 2
-                self.map_location_y -= 2
-                self.state = "stop"
-                self.visited.add((self.map_location_x, self.map_location_y))
-                self.not_visited.discard((self.map_location_x, self.map_location_y))
-                if self.path is not None:
-                    self.path = self.path[1:]
-                    print(self.path)
+        if move_check:
+            self.move(0.13, 0.1, 0, factor)
 
+        else:
+            self.moving = False
+            self.supposed_x += dx
+            self.supposed_y += dy
+            self.map_location_x += mx
+            self.map_location_y += my
+            self.state = "stop"
+            self.visited.add((self.map_location_x, self.map_location_y))
+            self.not_visited.discard((self.map_location_x, self.map_location_y))
+            if self.path is not None:
+                self.path = self.path[1:]
+                print(self.path)
 
-        elif self.orientation == orientation.Down:
-            if self.measures.y > self.supposed_y - inertia_comp:
-                self.move(0.13, 0.1, 0, factor)
-            else:
-                self.moving = False
-                self.supposed_y -= 2
-                self.map_location_y += 2
-                self.state = "stop"
-                self.visited.add((self.map_location_x, self.map_location_y))
-                self.not_visited.discard((self.map_location_x, self.map_location_y))
-                if self.path is not None:
-                    self.path = self.path[1:]
-                    print(self.path)
 
     def get_rotation_factor(self, soft_rotation=True, target=None):
         if soft_rotation:
