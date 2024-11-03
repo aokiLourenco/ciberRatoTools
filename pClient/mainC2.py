@@ -390,25 +390,29 @@ class MyRob(CRobLinkAngs):
 
     def next(self):
         try:
-            if self.orientation == orientation.Right:
-                return self.mymap[self.map_location_y,self.map_location_x + 2] == "X" and \
-                       self.mymap[self.map_location_y,self.map_location_x + 1] != "|" and \
-                       (self.map_location_x + 2, self.map_location_y) not in self.visited
+            # Define the offsets and symbols based on orientation
+            CHECK_MAP = {
+                orientation.Right: ((0, 2), (0, 1), "|"),
+                orientation.Up: ((-2, 0), (-1, 0), "-"),
+                orientation.Left: ((0, -2), (0, -1), "|"),
+                orientation.Down: ((2, 0), (1, 0), "-")
+            }
 
-            elif self.orientation == orientation.Up:
-                return self.mymap[self.map_location_y - 2,self.map_location_x] == "X" and \
-                       self.mymap[self.map_location_y - 1,self.map_location_x] != "-" and \
-                       (self.map_location_x, self.map_location_y - 2) not in self.visited
-            elif self.orientation == orientation.Left:
-                return self.mymap[self.map_location_y,self.map_location_x - 2] == "X" and \
-                       self.mymap[self.map_location_y,self.map_location_x - 1] != "|" and \
-                       (self.map_location_x - 2, self.map_location_y) not in self.visited
-            else:
-                return self.mymap[self.map_location_y + 2,self.map_location_x] == "X" and \
-                       self.mymap[self.map_location_y + 1,self.map_location_x] != "-" and \
-                       (self.map_location_x, self.map_location_y + 2) not in self.visited
-        except:
+            # Get the specific offset and symbol for the current orientation
+            far_offset, near_offset, barrier_symbol = CHECK_MAP[self.orientation]
+
+            # Calculate positions
+            far_y, far_x = self.map_location_y + far_offset[0], self.map_location_x + far_offset[1]
+            near_y, near_x = self.map_location_y + near_offset[0], self.map_location_x + near_offset[1]
+
+            # Check the conditions in a single return statement
+            return (self.mymap[far_y, far_x] == "X" and
+                    self.mymap[near_y, near_x] != barrier_symbol and
+                    (self.map_location_x + far_offset[1], self.map_location_y + far_offset[0]) not in self.visited)
+        except IndexError:
+            # Return False if any indexing errors occur
             return False
+
 
     def create_mapping_file(self):
         self.mymap[13,27] = "I"         
